@@ -254,7 +254,7 @@ $(document).ready(function () {
 
           const method = $('#payMethodSelect').val() || 'GCash';
           const refNo = $('#payRefNumber').val() || 'REF-' + Math.floor(100000 + Math.random() * 900000);
-          const amount = $('#payAmount').val() || '5,000';
+          const amount = $('#payAmount').val() || '3,500';
           const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
           // Prepend row to Tenant Payment History Table
@@ -266,7 +266,7 @@ $(document).ready(function () {
               <td class="fw-bold text-navy">₱${parseFloat(amount).toLocaleString()}</td>
               <td><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
               <td class="text-end">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${refNo}', 'Maria Clara Santos', 'Room 102 (Solo)', '${amount}', '${dateStr}', '${method}', '${refNo}')">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${refNo}', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '${amount}', '${dateStr}', '${method}', '${refNo}')">
                   <i class="bi bi-eye"></i> View
                 </button>
               </td>
@@ -479,8 +479,8 @@ window.processPayment = function (id, action) {
 // Preview Official Receipt Modal
 window.previewReceiptModal = function (id, tenant, room, amount, date, method, ref) {
   const tenantName = tenant || 'Maria Clara Santos';
-  const roomName = room || 'Room 102 (Solo)';
-  const amountStr = amount || '5,000';
+  const roomName = room || 'Unit BH-02 (Boarding House)';
+  const amountStr = amount || '3,500';
   const dateStr = date || 'Oct 2, 2026';
   const methodStr = method || 'GCash Transfer';
   const refNum = ref || id || 'GC-992813';

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard | Eanne Boarding House Rental</title>
-  <meta name="description" content="Landlord & Administrator Management Console for Eanne Boarding House Pasig.">
+  <title>Admin Dashboard | Eanne Boarding House Console</title>
+  <meta name="description" content="Landlord administrative dashboard for Eanne Boarding House rental operations in Pasig City.">
   
   <!-- Bootstrap 4.1.3 CSS & Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/css/bootstrap.min.css">
@@ -33,7 +33,7 @@
       <nav class="sidebar-nav">
         <a href="admin-dashboard.html" class="sidebar-link active"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
-        <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Beds</span></a>
+        <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
         <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto" id="pendingQueueBadge">3</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
@@ -52,13 +52,13 @@
 
     <!-- Main Content Area -->
     <div class="dashboard-main">
-      <!-- Topbar -->
+      <!-- Top Bar -->
       <header class="dashboard-topbar">
         <div class="d-flex align-items-center gap-3">
           <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" id="sidebarToggleBtn"><i class="bi bi-list fs-5"></i></button>
           <div>
-            <h5 class="mb-0 fw-bold text-navy">Property Overview</h5>
-            <small class="text-muted d-none d-sm-inline"><i class="bi bi-geo-alt me-1"></i>#275 105 St. Soldiers Village, Pasig City</small>
+            <h5 class="mb-0 fw-bold text-navy">Boarding House Management Console</h5>
+            <small class="text-muted">6 Units Total: 4 Boarding House Rentals & 2 Private Boarding Houses</small>
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -78,7 +78,7 @@
             <div class="kpi-icon blue"><i class="bi bi-building-check"></i></div>
             <div>
               <h6 class="fw-bold text-navy mb-1">Boarding House Operations Active</h6>
-              <p class="small text-muted mb-0">October 2026 rent collection cycle is currently open. 3 tenant proofs of payment need review.</p>
+              <p class="small text-muted mb-0">October 2026 rent collection cycle open. 3 tenant proofs of payment need review. Utility bills shouldered by tenants.</p>
             </div>
           </div>
           <div class="mt-2 mt-sm-0">
@@ -93,8 +93,8 @@
               <div class="kpi-icon navy"><i class="bi bi-people-fill"></i></div>
               <div>
                 <div class="kpi-title">Active Tenants</div>
-                <div class="kpi-value text-navy" data-counter="16">16</div>
-                <small class="text-success fw-semibold"><i class="bi bi-arrow-up-short"></i> 89% Capacity (16/18)</small>
+                <div class="kpi-value text-navy" data-counter="4">4</div>
+                <small class="text-success fw-semibold"><i class="bi bi-arrow-up-short"></i> 67% Capacity (4/6 Units)</small>
               </div>
             </div>
           </div>
@@ -102,9 +102,9 @@
             <div class="kpi-card h-100">
               <div class="kpi-icon blue"><i class="bi bi-cash-stack"></i></div>
               <div>
-                <div class="kpi-title">Monthly Revenue</div>
-                <div class="kpi-value text-navy" data-counter="68500" data-prefix="₱">₱68,500</div>
-                <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> October Target: ₱75,000</small>
+                <div class="kpi-title">Monthly Target</div>
+                <div class="kpi-value text-navy" data-counter="30000" data-prefix="₱">₱30,000</div>
+                <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> Full Compound Target</small>
               </div>
             </div>
           </div>
@@ -124,7 +124,7 @@
               <div>
                 <div class="kpi-title">Available Units</div>
                 <div class="kpi-value text-navy" data-counter="2">2</div>
-                <small class="text-info fw-semibold"><i class="bi bi-check2-circle me-1"></i> 1 Solo, 1 Bedspace</small>
+                <small class="text-info fw-semibold"><i class="bi bi-check2-circle me-1"></i> 1 BH Room, 1 Private House</small>
               </div>
             </div>
           </div>
@@ -146,7 +146,7 @@
                 <table class="table table-ebh table-hover mb-0" id="adminPendingTable">
                   <thead>
                     <tr>
-                      <th>Tenant & Room</th>
+                      <th>Tenant & Unit</th>
                       <th>Amount</th>
                       <th>Method & Ref</th>
                       <th>Date</th>
@@ -162,11 +162,11 @@
                           <div class="avatar-circle sm">MC</div>
                           <div>
                             <span class="fw-bold text-navy d-block">Maria Clara Santos</span>
-                            <small class="text-muted">Room 102 (Solo)</small>
+                            <small class="text-muted">Unit BH-02 (Boarding House)</small>
                           </div>
                         </div>
                       </td>
-                      <td class="fw-bold text-navy">₱5,000.00</td>
+                      <td class="fw-bold text-navy">₱3,500.00</td>
                       <td>
                         <span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span>
                         <small class="d-block text-muted">REF-992813</small>
@@ -175,7 +175,7 @@
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('992813', 'Maria Clara Santos', 'Room 102 (Solo)', '5000', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813')"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('101', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('101', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -188,7 +188,7 @@
                           <div class="avatar-circle sm">JD</div>
                           <div>
                             <span class="fw-bold text-navy d-block">Juan Dela Cruz</span>
-                            <small class="text-muted">Room 201 (Bed A)</small>
+                            <small class="text-muted">Unit BH-03 (Boarding House)</small>
                           </div>
                         </div>
                       </td>
@@ -201,7 +201,7 @@
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('441029', 'Juan Dela Cruz', 'Room 201 (Bed A)', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('441029', 'Juan Dela Cruz', 'Unit BH-03 (Boarding House)', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029')"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('102', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('102', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -211,23 +211,23 @@
                     <tr id="payment-row-103">
                       <td>
                         <div class="d-flex align-items-center gap-2">
-                          <div class="avatar-circle sm">AB</div>
+                          <div class="avatar-circle sm">ER</div>
                           <div>
-                            <span class="fw-bold text-navy d-block">Ana Bautista</span>
-                            <small class="text-muted">Room 104 (Solo)</small>
+                            <span class="fw-bold text-navy d-block">Eduardo & Grace Reyes</span>
+                            <small class="text-muted">Unit PB-01 (Private House)</small>
                           </div>
                         </div>
                       </td>
-                      <td class="fw-bold text-navy">₱5,000.00</td>
+                      <td class="fw-bold text-navy">₱8,000.00</td>
                       <td>
-                        <span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span>
-                        <small class="d-block text-muted">REF-883719</small>
+                        <span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> Maya QR</span>
+                        <small class="d-block text-muted">MYA-812049</small>
                       </td>
                       <td><small class="text-muted">Oct 1, 2026</small></td>
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('883719', 'Ana Bautista', 'Room 104 (Solo)', '5000', 'Oct 1, 2026', 'GCash Transfer', 'REF-883719')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('812049', 'Eduardo & Grace Reyes', 'Unit PB-01 (Private House)', '8000', 'Oct 1, 2026', 'Maya QR Transfer', 'MYA-812049')"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('103', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('103', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -238,46 +238,40 @@
               </div>
             </div>
 
-            <!-- Floor Occupancy Progress & Visual Status -->
+            <!-- Unit Occupancy Status -->
             <div class="ebh-card">
               <div class="ebh-card-header">
-                <h6 class="fw-bold text-navy mb-0"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i> Floor-by-Floor Occupancy</h6>
-                <a href="rooms.html" class="btn btn-sm btn-outline-primary">Manage Rooms</a>
+                <h6 class="fw-bold text-navy mb-0"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i> Category Occupancy Overview</h6>
+                <a href="rooms.html" class="btn btn-sm btn-outline-primary">Manage 6 Units</a>
               </div>
               <div class="ebh-card-body">
                 <div class="mb-4">
                   <div class="d-flex justify-content-between small fw-semibold mb-1">
-                    <span>1st Floor (Solo Rooms 101 - 106)</span>
-                    <span class="text-navy">5 of 6 Occupied (83%)</span>
+                    <span>Boarding House Rental Units (4 Units Total - ₱3,500/mo)</span>
+                    <span class="text-navy">3 of 4 Occupied (75%)</span>
                   </div>
                   <div class="progress" style="height: 10px;">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 83%;" aria-valuenow="83" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 75%;" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
                   </div>
                   <div class="d-flex gap-2 mt-2 flex-wrap">
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 101 (Occ)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 102 (Occ)</span>
-                    <span class="badge-ebh badge-verified small"><i class="bi bi-door-open"></i> Rm 103 (Available)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 104 (Occ)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 105 (Occ)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 106 (Occ)</span>
+                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-01 (Carlos)</span>
+                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-02 (Maria Clara)</span>
+                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-03 (Juan)</span>
+                    <span class="badge-ebh badge-verified small"><i class="bi bi-door-open"></i> Unit BH-04 (Vacant - ₱3,500)</span>
                   </div>
                 </div>
 
                 <div>
                   <div class="d-flex justify-content-between small fw-semibold mb-1">
-                    <span>2nd Floor (Bedspaces & Solo Units 201 - 206)</span>
-                    <span class="text-navy">11 of 12 Beds Occupied (92%)</span>
+                    <span>Private Boarding Houses (2 Units Total - ₱8,000/mo)</span>
+                    <span class="text-navy">1 of 2 Occupied (50%)</span>
                   </div>
                   <div class="progress" style="height: 10px;">
-                    <div class="progress-bar bg-info" role="progressbar" style="width: 92%;" aria-valuenow="92" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress-bar bg-success" role="progressbar" style="width: 50%;" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
                   </div>
                   <div class="d-flex gap-2 mt-2 flex-wrap">
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 201 (Bed A&B)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 202 (Bed A&B)</span>
-                    <span class="badge-ebh badge-verified small"><i class="bi bi-door-open"></i> Rm 203 (Bed B Open)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 204 (Solo Occ)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 205 (Solo Occ)</span>
-                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Rm 206 (Bed A&B)</span>
+                    <span class="badge-ebh badge-paid small"><i class="bi bi-house-door-fill"></i> Unit PB-01 (Reyes Family)</span>
+                    <span class="badge-ebh badge-verified small"><i class="bi bi-key-fill"></i> Unit PB-02 (Vacant - ₱8,000)</span>
                   </div>
                 </div>
               </div>
@@ -297,14 +291,14 @@
                   <i class="bi bi-chevron-right text-muted small"></i>
                 </button>
                 <button type="button" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2" data-toggle="modal" data-target="#addRoomModal">
-                  <span><i class="bi bi-door-plus-fill me-2 text-primary"></i> Add Room / Bed Inventory</span>
+                  <span><i class="bi bi-door-plus-fill me-2 text-primary"></i> Add Rental Unit</span>
                   <i class="bi bi-chevron-right text-muted small"></i>
                 </button>
                 <a href="reports.html" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2">
                   <span><i class="bi bi-printer-fill me-2 text-primary"></i> Print Monthly Collection Sheet</span>
                   <i class="bi bi-chevron-right text-muted small"></i>
                 </a>
-                <button type="button" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2" onclick="showToast('Broadcast Sent', 'Notice sent to all 16 tenant accounts.', 'info')">
+                <button type="button" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2" onclick="showToast('Broadcast Sent', 'Notice sent to all tenants.', 'info')">
                   <span><i class="bi bi-megaphone-fill me-2 text-primary"></i> Send Community Announcement</span>
                   <i class="bi bi-chevron-right text-muted small"></i>
                 </button>
@@ -321,29 +315,29 @@
                   <div class="d-flex gap-2">
                     <div class="avatar-circle sm bg-success text-white"><i class="bi bi-cash"></i></div>
                     <div>
-                      <strong class="text-navy">Maria Clara Santos</strong> submitted proof of payment for October rent (₱5,000).
+                      <strong class="text-navy">Maria Clara Santos</strong> submitted proof of payment for October rent (₱3,500).
                       <div class="text-muted" style="font-size:0.75rem;">12 minutes ago</div>
                     </div>
                   </div>
                   <div class="d-flex gap-2">
                     <div class="avatar-circle sm bg-primary text-white"><i class="bi bi-person"></i></div>
                     <div>
-                      <strong class="text-navy">Juan Dela Cruz</strong> renewed bedspace lease contract for 6 months.
+                      <strong class="text-navy">Juan Dela Cruz</strong> renewed lease for Unit BH-03 (₱3,500).
                       <div class="text-muted" style="font-size:0.75rem;">3 hours ago</div>
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <div class="avatar-circle sm bg-info text-white"><i class="bi bi-house"></i></div>
+                    <div>
+                      <strong class="text-navy">Eduardo Reyes</strong> submitted monthly rent for Unit PB-01 (₱8,000).
+                      <div class="text-muted" style="font-size:0.75rem;">Yesterday, 1:20 PM</div>
                     </div>
                   </div>
                   <div class="d-flex gap-2">
                     <div class="avatar-circle sm bg-warning text-dark"><i class="bi bi-tools"></i></div>
                     <div>
-                      <strong>Caretaker Kuya Boy</strong> completed water filter replacement on 2nd floor sink.
+                      <strong>Caretaker Kuya Boy</strong> checked kitchen sink in Boarding House units.
                       <div class="text-muted" style="font-size:0.75rem;">Yesterday, 4:30 PM</div>
-                    </div>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <div class="avatar-circle sm bg-info text-white"><i class="bi bi-shield-lock"></i></div>
-                    <div>
-                      Night perimeter lighting inspection completed.
-                      <div class="text-muted" style="font-size:0.75rem;">Oct 1, 2026</div>
                     </div>
                   </div>
                 </div>
@@ -381,28 +375,23 @@
                 <input type="date" class="form-control" id="newTenantMoveIn" required>
               </div>
               <div class="col-md-6">
-                <label for="newTenantRoom" class="form-label small fw-bold text-navy">Room / Bed Assignment</label>
-                <select class="form-control" id="newTenantRoom" required>
-                  <option value="Room 103 (Solo)">Room 103 (1st Floor Solo)</option>
-                  <option value="Room 203 (Bed B)">Room 203 - Bed B (2nd Floor Shared)</option>
-                  <option value="Room 107 (Solo)">Room 107 (1st Floor Solo)</option>
+                <label for="newTenantRoom" class="form-label small fw-bold text-navy">Unit Assignment</label>
+                <select class="form-control" id="newTenantRoom" required onchange="document.getElementById('newTenantRent').value = this.value.includes('PB') ? 8000 : 3500; document.getElementById('newTenantType').value = this.value.includes('PB') ? 'Private Boarding House' : 'Boarding House Rental';">
+                  <option value="Unit BH-04">Unit BH-04 (Boarding House Rental - ₱3,500)</option>
+                  <option value="Unit PB-02">Unit PB-02 (Private Boarding House - ₱8,000)</option>
                 </select>
               </div>
               <div class="col-md-6">
-                <label for="newTenantType" class="form-label small fw-bold text-navy">Room Classification</label>
-                <select class="form-control" id="newTenantType">
-                  <option value="Solo Room">Solo Room</option>
-                  <option value="Bedspace">Bedspace</option>
-                  <option value="Deluxe Solo">Deluxe Solo</option>
-                </select>
+                <label for="newTenantType" class="form-label small fw-bold text-navy">Rental Classification</label>
+                <input type="text" class="form-control bg-light" id="newTenantType" readonly value="Boarding House Rental">
               </div>
               <div class="col-md-6">
                 <label for="newTenantRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>
-                <input type="number" class="form-control" id="newTenantRent" required value="5000">
+                <input type="number" class="form-control" id="newTenantRent" required value="3500">
               </div>
               <div class="col-md-6">
-                <label class="form-label small fw-bold text-navy">Utilities Inclusions</label>
-                <input type="text" class="form-control bg-light" readonly value="Water & Electricity Included">
+                <label class="form-label small fw-bold text-navy">Utilities Policy</label>
+                <input type="text" class="form-control bg-light text-danger fw-bold" readonly value="Bills Excluded (Shouldered by Tenant)">
               </div>
             </div>
           </div>
@@ -420,7 +409,7 @@
     <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content border-0 shadow-lg">
         <div class="modal-header bg-navy text-white">
-          <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-door-plus-fill me-2"></i> Add Room / Bed Unit</h5>
+          <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-door-plus-fill me-2"></i> Add Rental Unit</h5>
           <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -429,37 +418,34 @@
           <div class="modal-body p-4">
             <div class="row g-3">
               <div class="col-md-6">
-                <label for="newRoomNumber" class="form-label small fw-bold text-navy">Room Number / Identifier</label>
-                <input type="text" class="form-control" id="newRoomNumber" required placeholder="e.g. Room 107">
-              </div>
-              <div class="col-md-6">
-                <label for="newRoomFloor" class="form-label small fw-bold text-navy">Floor Level</label>
-                <select class="form-control" id="newRoomFloor" required>
-                  <option value="1st-floor">1st Floor</option>
-                  <option value="2nd-floor">2nd Floor</option>
-                </select>
+                <label for="newRoomNumber" class="form-label small fw-bold text-navy">Unit Identifier</label>
+                <input type="text" class="form-control" id="newRoomNumber" required placeholder="e.g. Unit BH-05">
               </div>
               <div class="col-md-6">
                 <label for="newRoomType" class="form-label small fw-bold text-navy">Unit Category</label>
-                <select class="form-control" id="newRoomType" required>
-                  <option value="Solo">Solo Unit</option>
-                  <option value="Bedspace">Bedspace Shared</option>
-                  <option value="Deluxe">Deluxe Studio</option>
+                <select class="form-control" id="newRoomType" required onchange="document.getElementById('newRoomRate').value = this.value === 'Private Boarding House' ? 8000 : 3500;">
+                  <option value="Boarding House Rental">Boarding House Rental</option>
+                  <option value="Private Boarding House">Private Boarding House</option>
                 </select>
               </div>
               <div class="col-md-6">
                 <label for="newRoomRate" class="form-label small fw-bold text-navy">Monthly Rate (₱)</label>
-                <input type="number" class="form-control" id="newRoomRate" required value="5000">
+                <input type="number" class="form-control" id="newRoomRate" required value="3500">
+              </div>
+              <div class="col-md-6">
+                <label for="newRoomCapacity" class="form-label small fw-bold text-navy">Maximum Occupants</label>
+                <input type="number" class="form-control" id="newRoomCapacity" value="3" min="1" max="6">
               </div>
               <div class="col-12">
-                <label for="newRoomCapacity" class="form-label small fw-bold text-navy">Maximum Occupants</label>
-                <input type="number" class="form-control" id="newRoomCapacity" value="1" min="1" max="4">
+                <div class="alert alert-info py-2 px-3 small mb-0">
+                  <i class="bi bi-info-circle me-1"></i> Electricity and water bills are excluded and shouldered by tenants.
+                </div>
               </div>
             </div>
           </div>
           <div class="modal-footer bg-light">
             <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-save me-1"></i> Add to Room Inventory</button>
+            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-save me-1"></i> Add Unit to Inventory</button>
           </div>
         </form>
       </div>

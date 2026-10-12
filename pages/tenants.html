@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tenants Roster | Eanne Admin Console</title>
-  <meta name="description" content="Tenant management roster, lease contract tracking, and room occupancy for Eanne Boarding House.">
+  <title>Tenants Master Roster | Eanne Admin Console</title>
+  <meta name="description" content="Tenant management ledger and resident database for Eanne Boarding House Pasig.">
   
   <!-- Bootstrap 4.1.3 CSS & Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/css/bootstrap.min.css">
@@ -33,7 +33,7 @@
       <nav class="sidebar-nav">
         <a href="admin-dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link active"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
-        <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Beds</span></a>
+        <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
         <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto">3</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
@@ -57,7 +57,7 @@
           <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" id="sidebarToggleBtn"><i class="bi bi-list fs-5"></i></button>
           <div>
             <h5 class="mb-0 fw-bold text-navy">Tenants Master Roster</h5>
-            <small class="text-muted"><span id="tenantCountBadge" class="fw-bold text-primary">8</span> Active Residents Listed</small>
+            <small class="text-muted"><span id="tenantCountBadge" class="fw-bold text-primary">4</span> Active Residents Listed (Across 6 Compound Units)</small>
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -75,16 +75,15 @@
             <div class="col-md-5 col-lg-4">
               <div class="input-group">
                 <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control border-start-0" id="tenantSearchInput" placeholder="Search tenant name, room, or phone...">
+                <input type="text" class="form-control border-start-0" id="tenantSearchInput" placeholder="Search tenant name, unit, or phone...">
               </div>
             </div>
             <div class="col-md-7 col-lg-8">
               <div class="btn-filter-group justify-content-md-end">
-                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#tenantsTable tbody tr">All Tenants</button>
+                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#tenantsTable tbody tr">All Tenants (4)</button>
                 <button type="button" class="btn-filter" data-filter="active" data-target-items="#tenantsTable tbody tr">Active</button>
-                <button type="button" class="btn-filter" data-filter="solo" data-target-items="#tenantsTable tbody tr">Solo Rooms</button>
-                <button type="button" class="btn-filter" data-filter="bedspace" data-target-items="#tenantsTable tbody tr">Bedspaces</button>
-                <button type="button" class="btn-filter" data-filter="notice" data-target-items="#tenantsTable tbody tr">Moving Out Notice</button>
+                <button type="button" class="btn-filter" data-filter="boarding" data-target-items="#tenantsTable tbody tr">Boarding House (3)</button>
+                <button type="button" class="btn-filter" data-filter="private" data-target-items="#tenantsTable tbody tr">Private House (1)</button>
               </div>
             </div>
           </div>
@@ -97,7 +96,7 @@
               <thead>
                 <tr>
                   <th>Resident Profile</th>
-                  <th>Assigned Room</th>
+                  <th>Assigned Unit</th>
                   <th>Classification</th>
                   <th>Monthly Rent</th>
                   <th>Contract Move-in</th>
@@ -106,8 +105,8 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- Tenant 1 -->
-                <tr class="filterable-item" data-category="active solo" data-status="active">
+                <!-- Tenant 1: Maria Clara -->
+                <tr class="filterable-item" data-category="active boarding" data-status="active">
                   <td>
                     <div class="d-flex align-items-center gap-2">
                       <div class="avatar-circle sm">MC</div>
@@ -117,21 +116,45 @@
                       </div>
                     </div>
                   </td>
-                  <td><span class="fw-semibold text-navy">Room 102</span> <small class="text-muted d-block">1st Floor</small></td>
-                  <td><span class="badge badge-light border">Solo Unit</span></td>
-                  <td class="fw-bold text-navy">₱5,000.00</td>
+                  <td><span class="fw-semibold text-navy">Unit BH-02</span> <small class="text-muted d-block">Room 2 &bull; Shared CR</small></td>
+                  <td><span class="badge badge-light border">Boarding House</span></td>
+                  <td class="fw-bold text-navy">₱3,500.00</td>
                   <td><small class="text-muted">Jan 15, 2026</small></td>
                   <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Maria Clara Santos', 'Room 102 (Solo)', 'Solo Unit', '₱5,000.00', '0917-882-9901', 'Jan 15, 2026')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Maria Clara Santos', 'Unit BH-02', 'Boarding House Rental', '₱3,500.00', '0917-882-9901', 'Jan 15, 2026')"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Maria Clara Santos')"><i class="bi bi-box-arrow-right"></i></button>
                     </div>
                   </td>
                 </tr>
 
-                <!-- Tenant 2 -->
-                <tr class="filterable-item" data-category="active bedspace" data-status="active">
+                <!-- Tenant 2: Carlos Dominguez -->
+                <tr class="filterable-item" data-category="active boarding" data-status="active">
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="avatar-circle sm">CD</div>
+                      <div>
+                        <span class="fw-bold text-navy d-block">Carlos Dominguez</span>
+                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-234-5678</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="fw-semibold text-navy">Unit BH-01</span> <small class="text-muted d-block">Room 1 &bull; Shared CR</small></td>
+                  <td><span class="badge badge-light border">Boarding House</span></td>
+                  <td class="fw-bold text-navy">₱3,500.00</td>
+                  <td><small class="text-muted">Jan 10, 2026</small></td>
+                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
+                  <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Carlos Dominguez', 'Unit BH-01', 'Boarding House Rental', '₱3,500.00', '0917-234-5678', 'Jan 10, 2026')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Carlos Dominguez')"><i class="bi bi-box-arrow-right"></i></button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Tenant 3: Juan Dela Cruz -->
+                <tr class="filterable-item" data-category="active boarding" data-status="active">
                   <td>
                     <div class="d-flex align-items-center gap-2">
                       <div class="avatar-circle sm">JD</div>
@@ -141,159 +164,39 @@
                       </div>
                     </div>
                   </td>
-                  <td><span class="fw-semibold text-navy">Room 201 - Bed A</span> <small class="text-muted d-block">2nd Floor</small></td>
-                  <td><span class="badge badge-light border">Bedspace Shared</span></td>
+                  <td><span class="fw-semibold text-navy">Unit BH-03</span> <small class="text-muted d-block">Room 3 &bull; Shared CR</small></td>
+                  <td><span class="badge badge-light border">Boarding House</span></td>
                   <td class="fw-bold text-navy">₱3,500.00</td>
                   <td><small class="text-muted">Mar 1, 2026</small></td>
                   <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Juan Dela Cruz', 'Room 201 - Bed A', 'Bedspace Shared', '₱3,500.00', '0918-223-1122', 'Mar 1, 2026')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Juan Dela Cruz', 'Unit BH-03', 'Boarding House Rental', '₱3,500.00', '0918-223-1122', 'Mar 1, 2026')"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Juan Dela Cruz')"><i class="bi bi-box-arrow-right"></i></button>
                     </div>
                   </td>
                 </tr>
 
-                <!-- Tenant 3 -->
-                <tr class="filterable-item" data-category="active bedspace" data-status="active">
+                <!-- Tenant 4: Eduardo & Grace Reyes -->
+                <tr class="filterable-item" data-category="active private" data-status="active">
                   <td>
                     <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">JR</div>
+                      <div class="avatar-circle sm">ER</div>
                       <div>
-                        <span class="fw-bold text-navy d-block">Jose Rizal Mendoza</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0919-445-6677</small>
+                        <span class="fw-bold text-navy d-block">Eduardo & Grace Reyes</span>
+                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-889-4455</small>
                       </div>
                     </div>
                   </td>
-                  <td><span class="fw-semibold text-navy">Room 201 - Bed B</span> <small class="text-muted d-block">2nd Floor</small></td>
-                  <td><span class="badge badge-light border">Bedspace Shared</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><small class="text-muted">Feb 10, 2026</small></td>
+                  <td><span class="fw-semibold text-navy">Unit PB-01</span> <small class="text-muted d-block">Private House 1 &bull; Standalone</small></td>
+                  <td><span class="badge badge-light border">Private Boarding House</span></td>
+                  <td class="fw-bold text-navy">₱8,000.00</td>
+                  <td><small class="text-muted">Feb 1, 2026</small></td>
                   <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
                   <td class="text-end">
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Jose Rizal Mendoza', 'Room 201 - Bed B', 'Bedspace Shared', '₱3,500.00', '0919-445-6677', 'Feb 10, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Jose Rizal Mendoza')"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 4 -->
-                <tr class="filterable-item" data-category="active solo" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">AB</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Ana Bautista</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0915-334-5566</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Room 104</span> <small class="text-muted d-block">1st Floor</small></td>
-                  <td><span class="badge badge-light border">Solo Unit</span></td>
-                  <td class="fw-bold text-navy">₱5,000.00</td>
-                  <td><small class="text-muted">Apr 1, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Ana Bautista', 'Room 104 (Solo)', 'Solo Unit', '₱5,000.00', '0915-334-5566', 'Apr 1, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Ana Bautista')"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 5 -->
-                <tr class="filterable-item" data-category="active bedspace" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">GR</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Gabriel Reyes</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0920-998-7711</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Room 202 - Bed A</span> <small class="text-muted d-block">2nd Floor</small></td>
-                  <td><span class="badge badge-light border">Bedspace Shared</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><small class="text-muted">May 12, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Gabriel Reyes', 'Room 202 - Bed A', 'Bedspace Shared', '₱3,500.00', '0920-998-7711', 'May 12, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Gabriel Reyes')"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 6 -->
-                <tr class="filterable-item" data-category="active solo" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">AF</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Andres Bonifacio</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-665-4433</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Room 204</span> <small class="text-muted d-block">2nd Floor</small></td>
-                  <td><span class="badge badge-light border">Solo Unit</span></td>
-                  <td class="fw-bold text-navy">₱5,000.00</td>
-                  <td><small class="text-muted">Jun 1, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Andres Bonifacio', 'Room 204 (Solo)', 'Solo Unit', '₱5,000.00', '0917-665-4433', 'Jun 1, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Andres Bonifacio')"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 7 -->
-                <tr class="filterable-item" data-category="active solo" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">EG</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Elena Garcia</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0927-554-1199</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Room 105</span> <small class="text-muted d-block">1st Floor</small></td>
-                  <td><span class="badge badge-light border">Solo Unit</span></td>
-                  <td class="fw-bold text-navy">₱5,000.00</td>
-                  <td><small class="text-muted">Aug 15, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Elena Garcia', 'Room 105 (Solo)', 'Solo Unit', '₱5,000.00', '0927-554-1199', 'Aug 15, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Elena Garcia')"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 8 (Notice) -->
-                <tr class="filterable-item" data-category="notice solo" data-status="notice">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">MC</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Mark Anthony Cruz</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0916-123-9876</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Room 205</span> <small class="text-muted d-block">2nd Floor</small></td>
-                  <td><span class="badge badge-light border">Solo Unit</span></td>
-                  <td class="fw-bold text-navy">₱5,000.00</td>
-                  <td><small class="text-muted">Jul 20, 2026</small></td>
-                  <td><span class="badge-ebh badge-overdue"><i class="bi bi-info-circle"></i> Moving Out Oct 31</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Mark Anthony Cruz', 'Room 205 (Solo)', 'Solo Unit', '₱5,000.00', '0916-123-9876', 'Jul 20, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Mark Anthony Cruz')"><i class="bi bi-box-arrow-right"></i></button>
+                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Eduardo & Grace Reyes', 'Unit PB-01', 'Private Boarding House', '₱8,000.00', '0917-889-4455', 'Feb 1, 2026')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, 'Eduardo & Grace Reyes')"><i class="bi bi-box-arrow-right"></i></button>
                     </div>
                   </td>
                 </tr>
@@ -320,7 +223,7 @@
             <div class="row g-3">
               <div class="col-12">
                 <label for="newTenantName" class="form-label small fw-bold text-navy">Full Legal Name</label>
-                <input type="text" class="form-control" id="newTenantName" required placeholder="e.g. Roberto Gomez">
+                <input type="text" class="form-control" id="newTenantName" required placeholder="e.g. Patricia Reyes">
               </div>
               <div class="col-md-6">
                 <label for="newTenantContact" class="form-label small fw-bold text-navy">Mobile / Contact Number</label>
@@ -328,31 +231,26 @@
               </div>
               <div class="col-md-6">
                 <label for="newTenantMoveIn" class="form-label small fw-bold text-navy">Move-in Date</label>
-                <input type="date" class="form-control" id="newTenantMoveIn" required>
+                <input type="date" class="form-control" id="newTenantMoveIn" required value="2026-10-15">
               </div>
               <div class="col-md-6">
-                <label for="newTenantRoom" class="form-label small fw-bold text-navy">Room Assignment</label>
-                <select class="form-control" id="newTenantRoom" required>
-                  <option value="Room 103 (Solo)">Room 103 (1st Floor Solo)</option>
-                  <option value="Room 203 - Bed B">Room 203 - Bed B (2nd Floor Shared)</option>
-                  <option value="Room 107 (Solo)">Room 107 (1st Floor Solo)</option>
+                <label for="newTenantRoom" class="form-label small fw-bold text-navy">Unit Assignment</label>
+                <select class="form-control" id="newTenantRoom" required onchange="document.getElementById('newTenantRent').value = this.value.includes('PB') ? 8000 : 3500; document.getElementById('newTenantType').value = this.value.includes('PB') ? 'Private Boarding House' : 'Boarding House Rental';">
+                  <option value="Unit BH-04">Unit BH-04 (Boarding House Rental - ₱3,500)</option>
+                  <option value="Unit PB-02">Unit PB-02 (Private Boarding House - ₱8,000)</option>
                 </select>
               </div>
               <div class="col-md-6">
-                <label for="newTenantType" class="form-label small fw-bold text-navy">Room Classification</label>
-                <select class="form-control" id="newTenantType">
-                  <option value="Solo Unit">Solo Unit</option>
-                  <option value="Bedspace Shared">Bedspace Shared</option>
-                  <option value="Deluxe Studio">Deluxe Studio</option>
-                </select>
+                <label for="newTenantType" class="form-label small fw-bold text-navy">Unit Classification</label>
+                <input type="text" class="form-control bg-light" id="newTenantType" readonly value="Boarding House Rental">
               </div>
               <div class="col-md-6">
                 <label for="newTenantRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>
-                <input type="number" class="form-control" id="newTenantRent" required value="5000">
+                <input type="number" class="form-control" id="newTenantRent" required value="3500">
               </div>
               <div class="col-md-6">
-                <label class="form-label small fw-bold text-navy">Utilities Inclusions</label>
-                <input type="text" class="form-control bg-light" readonly value="Water & Electricity Included">
+                <label class="form-label small fw-bold text-navy">Utilities Policy</label>
+                <input type="text" class="form-control bg-light text-danger fw-bold" readonly value="Bills Excluded (Shouldered by Tenant)">
               </div>
             </div>
           </div>
