@@ -483,6 +483,113 @@ $(document).ready(function () {
     });
   }
 
+  // 12a. Edit Tenant Modal Form (User Maintenance - Edit Function)
+  const $editTenantForm = $('#editTenantForm');
+  if ($editTenantForm.length) {
+    $editTenantForm.on('submit', function (e) {
+      e.preventDefault();
+      const id = $('#editTenantId').val();
+      const name = $('#editTenantName').val();
+      const contact = $('#editTenantContact').val();
+      const email = $('#editTenantEmail').val();
+      const moveIn = $('#editTenantMoveIn').val();
+      const rawRoom = $('#editTenantRoom').val() || '';
+      const cleanRoom = rawRoom.replace('Unit ', '').trim();
+      const rent = $('#editTenantRent').val();
+      const status = $('#editTenantStatus').val() || 'active';
+      const $submitBtn = $(this).find('button[type="submit"]');
+      const origText = $submitBtn.html();
+
+      $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Updating in MySQL...');
+
+      $.ajax({
+        url: window.getEbhApiUrl('api_tenants.php'),
+        type: 'POST',
+        data: {
+          action: 'edit_tenant',
+          id: id,
+          full_name: name,
+          phone: contact,
+          email: email,
+          unit_code: cleanRoom,
+          monthly_rent: rent,
+          move_in_date: moveIn,
+          lease_status: status
+        },
+        dataType: 'json',
+        success: function (res) {
+          $submitBtn.prop('disabled', false).html(origText);
+          if (res.success) {
+            $('#editTenantModal').modal('hide');
+            showToast('Tenant Updated', `${name}'s account was successfully updated in MySQL.`, 'success');
+
+            if (typeof window.loadTenantsList === 'function') window.loadTenantsList();
+            if (typeof window.loadRoomsGrid === 'function') window.loadRoomsGrid();
+            if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
+          } else {
+            showToast('Update Failed', res.error || 'Could not update tenant.', 'danger');
+          }
+        },
+        error: function (xhr, status, err) {
+          $submitBtn.prop('disabled', false).html(origText);
+          showToast('Connection Error', 'Could not update tenant: ' + err, 'danger');
+        }
+      });
+    });
+  }
+
+  // 12b. Edit Room Modal Form (File Maintenance - Edit Function)
+  const $editRoomForm = $('#editRoomForm');
+  if ($editRoomForm.length) {
+    $editRoomForm.on('submit', function (e) {
+      e.preventDefault();
+      const id = $('#editRoomId').val();
+      const rawRoomNum = $('#editRoomNumber').val();
+      const cleanUnitCode = rawRoomNum.replace('Unit ', '').trim();
+      const type = $('#editRoomType').val();
+      const rate = $('#editRoomRate').val();
+      const capacity = $('#editRoomCapacity').val() || 3;
+      const status = $('#editRoomStatus').val() || 'available';
+      const inclusions = $('#editRoomInclusions').val();
+      const $submitBtn = $(this).find('button[type="submit"]');
+      const origText = $submitBtn.html();
+
+      $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Updating in MySQL...');
+
+      $.ajax({
+        url: window.getEbhApiUrl('api_rooms.php'),
+        type: 'POST',
+        data: {
+          action: 'edit_room',
+          id: id,
+          unit_code: cleanUnitCode,
+          room_type: type,
+          monthly_rate: rate,
+          max_pax: capacity,
+          status: status,
+          inclusions: inclusions
+        },
+        dataType: 'json',
+        success: function (res) {
+          $submitBtn.prop('disabled', false).html(origText);
+          if (res.success) {
+            $('#editRoomModal').modal('hide');
+            showToast('Room Updated', `Unit ${cleanUnitCode} updated in MySQL inventory.`, 'success');
+
+            if (typeof window.loadRoomsGrid === 'function') window.loadRoomsGrid();
+            if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
+          } else {
+            showToast('Update Failed', res.error || 'Could not update room.', 'danger');
+          }
+        },
+        error: function (xhr, status, err) {
+          $submitBtn.prop('disabled', false).html(origText);
+          showToast('Connection Error', 'Could not update room: ' + err, 'danger');
+        }
+      });
+    });
+  }
+
   // 13. Public Contact & Viewing Form
   const $contactForm = $('#contactViewingForm');
   if ($contactForm.length) {
@@ -1274,6 +1381,100 @@ window.removeTenantRow = function (btn, id, name) {
   }
 };
 
+// Open Edit Tenant Modal (User Maintenance - Edit Function)
+window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, moveIn, status) {
+  $('#editTenantId').val(id);
+  $('#editTenantName').val(name);
+  $('#editTenantContact').val(phone);
+  $('#editTenantEmail').val(email || '');
+  $('#editTenantMoveIn').val(moveIn || '');
+  $('#editTenantRoom').val((unitCode || '').replace('Unit ', '').trim());
+  $('#editTenantRent').val(rent || 3500);
+  $('#editTenantStatus').val(status || 'active');
+  $('#editTenantModal').modal('show');
+};
+
+// Permanently Delete Tenant Record (User Maintenance - Delete Function)
+window.deleteTenantRow = function (btn, id, name) {
+  const tenantName = name || 'this tenant';
+  if (confirm(`Are you sure you want to PERMANENTLY DELETE ${tenantName} from user accounts?\n\nThis will remove their resident account permanently from MySQL.`)) {
+    const $row = $(btn).closest('tr');
+    $row.find('button').prop('disabled', true);
+
+    $.ajax({
+      url: window.getEbhApiUrl('api_tenants.php'),
+      type: 'POST',
+      data: {
+        action: 'delete_tenant',
+        id: id || 0
+      },
+      dataType: 'json',
+      success: function (res) {
+        if (res.success) {
+          $row.css('background-color', '#fee2e2');
+          $row.fadeOut(350, function () {
+            $(this).remove();
+          });
+          showToast('Tenant Deleted', res.message, 'warning');
+          if (typeof window.loadTenantsList === 'function') window.loadTenantsList();
+          if (typeof window.loadRoomsGrid === 'function') window.loadRoomsGrid();
+          if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
+        } else {
+          $row.find('button').prop('disabled', false);
+          showToast('Delete Failed', res.error || 'Could not delete tenant.', 'danger');
+        }
+      },
+      error: function (xhr, status, err) {
+        $row.find('button').prop('disabled', false);
+        showToast('Connection Error', 'Could not reach server: ' + err, 'danger');
+      }
+    });
+  }
+};
+
+// Open Edit Room Modal (File Maintenance - Edit Function)
+window.openEditRoomModal = function (id, unitCode, roomType, rate, maxPax, inclusions, status) {
+  $('#editRoomId').val(id);
+  $('#editRoomNumber').val(unitCode);
+  $('#editRoomType').val(roomType);
+  $('#editRoomRate').val(rate);
+  $('#editRoomCapacity').val(maxPax);
+  $('#editRoomStatus').val(status || 'available');
+  try {
+    $('#editRoomInclusions').val(decodeURIComponent(inclusions));
+  } catch (e) {
+    $('#editRoomInclusions').val(inclusions || '');
+  }
+  $('#editRoomModal').modal('show');
+};
+
+// Permanently Delete Room Unit (File Maintenance - Delete Function)
+window.deleteRoom = function (id, unitCode) {
+  if (confirm(`Are you sure you want to PERMANENTLY DELETE Unit ${unitCode} from rooms inventory?\n\nThis unit will be deleted from MySQL.`)) {
+    $.ajax({
+      url: window.getEbhApiUrl('api_rooms.php'),
+      type: 'POST',
+      data: {
+        action: 'delete_room',
+        id: id
+      },
+      dataType: 'json',
+      success: function (res) {
+        if (res.success) {
+          showToast('Unit Deleted', res.message, 'warning');
+          if (typeof window.loadRoomsGrid === 'function') window.loadRoomsGrid();
+          if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
+        } else {
+          showToast('Delete Failed', res.error || 'Could not delete room.', 'danger');
+        }
+      },
+      error: function (xhr, status, err) {
+        showToast('Connection Error', 'Could not reach server: ' + err, 'danger');
+      }
+    });
+  }
+};
+
 // Photo Gallery Lightbox Viewer Modal
 window.openPhotoLightbox = function (src, title, category, desc) {
   const modalHtml = `
@@ -1535,7 +1736,13 @@ window.loadRoomsGrid = function () {
                 <p class="small text-muted mb-2">${r.inclusions}</p>
                 ${residentHtml}
                 <div class="mt-auto pt-3 border-top">
-                  ${actionHtml}
+                  <div class="d-flex flex-column gap-2">
+                    ${actionHtml}
+                    <div class="btn-group btn-group-sm w-100">
+                      <button type="button" class="btn btn-outline-primary" title="Edit Unit Specifications" onclick="window.openEditRoomModal(${r.id}, '${r.unit_code}', '${r.room_type}', ${r.monthly_rate}, ${r.max_pax}, '${encodeURIComponent(r.inclusions || '')}', '${r.status}')"><i class="bi bi-pencil-square me-1"></i> Edit Unit</button>
+                      <button type="button" class="btn btn-outline-danger" title="Permanently Delete Unit" onclick="window.deleteRoom(${r.id}, '${r.unit_code}')"><i class="bi bi-trash3 me-1"></i> Delete</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1629,8 +1836,10 @@ window.loadTenantsList = function () {
             <td>${statusBadge}</td>
             <td class="text-end">
               <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${t.full_name}', 'Unit ${t.unit_code}', '${t.room_type}', '${t.monthly_rent_formatted}', '${t.phone}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
-                <button class="btn btn-outline-danger" title="Archive / Move Out" onclick="removeTenantRow(this, ${t.id}, '${t.full_name}')"><i class="bi bi-box-arrow-right"></i></button>
+                <button type="button" class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${(t.full_name || '').replace(/'/g, "\\'")}', 'Unit ${t.unit_code}', '${(t.room_type || '').replace(/'/g, "\\'")}', '${t.monthly_rent_formatted}', '${(t.phone || '').replace(/'/g, "\\'")}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
+                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}')"><i class="bi bi-pencil-square"></i></button>
+                <button type="button" class="btn btn-outline-secondary" title="Mark Move Out / Inactive" onclick="removeTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-box-arrow-right"></i></button>
+                <button type="button" class="btn btn-outline-danger" title="Permanently Delete Tenant Account" onclick="window.deleteTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
               </div>
             </td>
           </tr>

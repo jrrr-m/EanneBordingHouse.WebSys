@@ -256,6 +256,151 @@ if ($method === 'GET') {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Failed to archive tenant: ' . $e->getMessage()]);
         }
+    } elseif ($action === 'edit_tenant') {
+        $tenantId = (int)($_POST['id'] ?? 0);
+        $fullName = trim($_POST['full_name'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $newUnitCode = strtoupper(trim($_POST['unit_code'] ?? ''));
+        $monthlyRent = (float)($_POST['monthly_rent'] ?? 0);
+        $moveInDate = trim($_POST['move_in_date'] ?? date('Y-m-d'));
+        $leaseStatus = trim($_POST['lease_status'] ?? 'active');
+
+        if ($tenantId <= 0 || empty($fullName)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Valid Tenant ID and full name are required.']);
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            // Fetch current tenant info
+            $stmtCurr = $pdo->prepare("SELECT id, unit_code, lease_status FROM users WHERE id = ? LIMIT 1");
+            $stmtCurr->execute([$tenantId]);
+            $currentTenant = $stmtCurr->fetch();
+
+            if (!$currentTenant) {
+                $pdo->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Tenant record not found.']);
+                exit;
+            }
+
+            $oldUnitCode = $currentTenant['unit_code'];
+
+            // Update tenant details
+            $stmtUp = $pdo->prepare("
+                UPDATE users 
+                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, move_in_date = ?, lease_status = ?
+                WHERE id = ?
+            ");
+            $stmtUp->execute([$fullName, $phone, $email, $newUnitCode, $monthlyRent, $moveInDate, $leaseStatus, $tenantId]);
+
+            // Sync room statuses
+            if ($leaseStatus === 'inactive') {
+                // Tenant is inactive, free old unit
+                if (!empty($oldUnitCode)) {
+                    $stmtR = $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?");
+                    $stmtR->execute([$oldUnitCode]);
+                }
+            } else {
+                // Tenant is active
+                if ($oldUnitCode !== $newUnitCode) {
+                    if (!empty($oldUnitCode)) {
+                        $stmtR1 = $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?");
+                        $stmtR1->execute([$oldUnitCode]);
+                    }
+                    if (!empty($newUnitCode)) {
+                        $stmtR2 = $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?");
+                        $stmtR2->execute([$newUnitCode]);
+                    }
+                } else if (!empty($newUnitCode)) {
+                    $stmtR3 = $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?");
+                    $stmtR3->execute([$newUnitCode]);
+                }
+            }
+
+            $pdo->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Tenant record for {$fullName} updated successfully.",
+                'tenant' => [
+                    'id' => $tenantId,
+                    'full_name' => $fullName,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'unit_code' => $newUnitCode,
+                    'monthly_rent' => $monthlyRent,
+                    'monthly_rent_formatted' => '₱' . number_format($monthlyRent, 2),
+                    'move_in_date' => date('M j, Y', strtotime($moveInDate)),
+                    'lease_status' => $leaseStatus
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to update tenant: ' . $e->getMessage()]);
+        }
+
+    } elseif ($action === 'delete_tenant') {
+        $tenantId = (int)($_POST['id'] ?? 0);
+
+        if ($tenantId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Valid Tenant ID is required.']);
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            // Fetch tenant info
+            $stmt = $pdo->prepare("SELECT id, full_name, unit_code FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$tenantId]);
+            $tenant = $stmt->fetch();
+
+            if (!$tenant) {
+                $pdo->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Tenant record not found.']);
+                exit;
+            }
+
+            // Free up room if assigned
+            if (!empty($tenant['unit_code'])) {
+                $stmtR = $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?");
+                $stmtR->execute([$tenant['unit_code']]);
+            }
+
+            // Safely unlink tenant from payments (retain payment history, set tenant_id to null)
+            $stmtPay = $pdo->prepare("UPDATE payments SET tenant_id = NULL WHERE tenant_id = ?");
+            $stmtPay->execute([$tenantId]);
+
+            // Permanently delete user record
+            $stmtDel = $pdo->prepare("DELETE FROM users WHERE id = ?");
+            $stmtDel->execute([$tenantId]);
+
+            $pdo->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Tenant {$tenant['full_name']} (ID: {$tenantId}) has been permanently deleted from user records.",
+                'unit_code' => $tenant['unit_code']
+            ]);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to delete tenant: ' . $e->getMessage()]);
+        }
+
     } else {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Unknown action.']);

@@ -14,8 +14,8 @@ EanneBordingHouse.WebSys/
 ├── pages/                       # User Interface Pages (Admin & Tenant)
 │   ├── login.html               # Role-based authentication portal (Admin / Tenant)
 │   ├── admin-dashboard.html     # Landlord executive console (KPIs, queue, occupancy overview)
-│   ├── rooms.html               # Compound room inventory & beds management (Status, rates, assign)
-│   ├── tenants.html             # Active tenants roster (Contracts, contact info, move-out action)
+│   ├── rooms.html               # File Maintenance: Room inventory (Add, Edit specs, Delete unit, occupancy)
+│   ├── tenants.html             # User Maintenance: Tenant accounts (Register/Add, Edit profile, Archive, Delete)
 │   ├── payments.html            # Verification queue for uploaded digital receipts & cash logging
 │   ├── tickets.html             # Caretaker & maintenance tickets queue (Work orders, status updates)
 │   ├── reports.html             # Financial operating ledgers, collection efficiency & CSV export
@@ -37,8 +37,8 @@ EanneBordingHouse.WebSys/
 │   ├── db.php                   # Centralized PDO MySQL connection singleton
 │   ├── api_auth.php             # Session & credentials authentication against `users` table
 │   ├── api_get_stats.php        # Live compound KPI metrics, revenue targets, and recent activity
-│   ├── api_rooms.php            # Room CRUD, live occupancy status toggles, and tenant mapping
-│   ├── api_tenants.php          # Tenant roster, contract move-ins, and lease archiving
+│   ├── api_rooms.php            # File Maintenance CRUD: Add, Edit specifications, Delete room, status toggles
+│   ├── api_tenants.php          # User Maintenance CRUD: Add tenant, Edit details, Move-out archive, Hard delete
 │   ├── api_get_payments.php     # Filtered payment transactions, counts, and revenue aggregates
 │   ├── api_update_payment.php   # Approval endpoint (marks 'Verified & Cleared' in MySQL)
 │   ├── api_upload_payment.php   # Receipt upload handler (saves images to uploads/payments/)
@@ -65,8 +65,8 @@ EanneBordingHouse.WebSys/
 | :--- | :--- | :--- | :--- |
 | **Login Portal** | [`pages/login.html`](pages/login.html) | All | Role-based authentication against MySQL (`admin` / `tenant`) with error shake animations. |
 | **Admin Dashboard** | [`pages/admin-dashboard.html`](pages/admin-dashboard.html) | Admin | Live KPI cards (Active Tenants, Monthly Target, Queue, Vacancy), Category Occupancy overview, and Recent Activity feed. |
-| **Rooms & Beds** | [`pages/rooms.html`](pages/rooms.html) | Admin | Real-time 6-unit grid, live status badges (`occupied`, `available`, `maintenance`), tenant assignment, and Add Unit modal. |
-| **Tenants Roster** | [`pages/tenants.html`](pages/tenants.html) | Admin | Resident directory with profile drawer, lease status badges, Register Tenant modal, and Move-Out / Archive action. |
+| **Rooms & Houses** | [`pages/rooms.html`](pages/rooms.html) | Admin | **File Maintenance (CRUD):** Add rental units, Edit unit specifications (rate, type, capacity, inclusions), Delete units permanently, and quick vacancy status toggling. |
+| **Tenants Roster** | [`pages/tenants.html`](pages/tenants.html) | Admin | **User Maintenance (CRUD):** Register new tenant accounts, Edit resident profile & rent, Mark move-out (lease archiving), and Permanently Delete accounts. |
 | **Payments Queue** | [`pages/payments.html`](pages/payments.html) | Admin | Pending receipt review, digital receipt preview with uploaded photo proof, instant **Approve ("Verified & Cleared")** / **Reject**, and Walk-in Cash logging. |
 | **Reports & Ledgers** | [`pages/reports.html`](pages/reports.html) | Admin | Monthly revenue ledger, collection efficiency breakdowns, policy summaries, and dynamic CSV report export. |
 | **Tenant Portal** | [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html) | Tenant | Live billing statement, proof of payment upload form, payment history ledger, and maintenance ticket tracker. |
@@ -75,6 +75,20 @@ EanneBordingHouse.WebSys/
 | **House Rules** | [`pages/house-rules.html`](pages/house-rules.html) | Public / Tenant | Detailed compound rules: 3-pax limit, 10 PM quiet curfew (no karaoke), CLAYGO, and utility exclusion guidelines. |
 | **Photo Gallery** | [`pages/gallery.html`](pages/gallery.html) | Public | Filterable photography grid with full-screen lightbox modal for compound and room views. |
 | **Contact & Viewings** | [`pages/contact.html`](pages/contact.html) | Public | Location map, transport routes, Soldiers Village landmark guide, and viewing booking form. |
+
+---
+
+## 📋 System Requirements & Maintenance Functions (Part 4 Compliance)
+
+This system meets all server-side script and maintenance requirements:
+
+| Requirement Component | Implementation Web Page | Backend Script | Supported Functions |
+| :--- | :--- | :--- | :--- |
+| **Server-Side Scripting** | All Application Pages | [`backend/*.php`](backend/) | Uses PHP PDO with prepared statements connecting to MySQL (`eanne_boarding_house_db`). |
+| **Manage Website Records** | Master Ledgers & Grids | [`backend/db.php`](backend/db.php) | Centralized MySQL persistence for rooms, user accounts, payments, and work tickets. |
+| **Working Log-in Page** | [`pages/login.html`](pages/login.html) | [`backend/api_auth.php`](backend/api_auth.php) | Secure session authentication verifying credentials, roles, and automated dashboard redirection. |
+| **User Maintenance** *(Customer / Tenant Accounts)* | [`pages/tenants.html`](pages/tenants.html) | [`backend/api_tenants.php`](backend/api_tenants.php) | • **Add:** Register new tenant with unit assignment & default password.<br>• **Edit:** Modify full legal name, contact number, email, unit assignment, rent, move-in date, and lease status via modal.<br>• **Delete:** Hard delete tenant account with automated room status freeing and safe payment unlinking. |
+| **File Maintenance** *(Room Inventory Maintenance)* | [`pages/rooms.html`](pages/rooms.html) | [`backend/api_rooms.php`](backend/api_rooms.php) | • **Add:** Create new rental unit (Unit code, rate, type, capacity, inclusions).<br>• **Edit:** Modify unit specifications, category (₱3,500 vs ₱8,000), inclusions, and occupancy status via modal.<br>• **Delete:** Permanently remove rental unit from rooms inventory table with tenant unlinking. |
 
 ---
 

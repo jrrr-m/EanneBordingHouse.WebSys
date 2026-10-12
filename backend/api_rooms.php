@@ -168,6 +168,127 @@ if ($method === 'GET') {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Could not add room: ' . $e->getMessage()]);
         }
+    } elseif ($action === 'edit_room') {
+        $roomId = (int)($_POST['id'] ?? 0);
+        $unitCode = strtoupper(trim($_POST['unit_code'] ?? ''));
+        $roomType = trim($_POST['room_type'] ?? 'Boarding House Rental');
+        $rate = (float)($_POST['monthly_rate'] ?? 3500.00);
+        $maxPax = (int)($_POST['max_pax'] ?? 3);
+        $inclusions = trim($_POST['inclusions'] ?? '');
+        $status = trim($_POST['status'] ?? 'available');
+
+        if ($roomId <= 0 || empty($unitCode)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Valid Room ID and Unit Code are required.']);
+            exit;
+        }
+
+        if (!in_array($status, ['available', 'occupied', 'maintenance'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid status value. Must be available, occupied, or maintenance.']);
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            // Fetch old unit code
+            $stmtOld = $pdo->prepare("SELECT unit_code FROM rooms WHERE id = ? LIMIT 1");
+            $stmtOld->execute([$roomId]);
+            $oldCode = $stmtOld->fetchColumn();
+
+            if (!$oldCode) {
+                $pdo->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Room record not found.']);
+                exit;
+            }
+
+            // Update rooms table
+            $stmt = $pdo->prepare("
+                UPDATE rooms 
+                SET unit_code = ?, room_type = ?, monthly_rate = ?, max_pax = ?, inclusions = ?, status = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$unitCode, $roomType, $rate, $maxPax, $inclusions, $status, $roomId]);
+
+            // If unit code changed, update associated tenants
+            if ($oldCode !== $unitCode) {
+                $stmtSync = $pdo->prepare("UPDATE users SET unit_code = ? WHERE unit_code = ?");
+                $stmtSync->execute([$unitCode, $oldCode]);
+            }
+
+            $pdo->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Room {$unitCode} updated successfully.",
+                'room' => [
+                    'id' => $roomId,
+                    'unit_code' => $unitCode,
+                    'room_type' => $roomType,
+                    'monthly_rate' => $rate,
+                    'monthly_rate_formatted' => '₱' . number_format($rate, 2),
+                    'max_pax' => $maxPax,
+                    'inclusions' => $inclusions,
+                    'status' => $status
+                ]
+            ]);
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Could not update room: ' . $e->getMessage()]);
+        }
+
+    } elseif ($action === 'delete_room') {
+        $roomId = (int)($_POST['id'] ?? 0);
+
+        if ($roomId <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Valid Room ID is required.']);
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            $stmtCheck = $pdo->prepare("SELECT unit_code, status FROM rooms WHERE id = ? LIMIT 1");
+            $stmtCheck->execute([$roomId]);
+            $room = $stmtCheck->fetch();
+
+            if (!$room) {
+                $pdo->rollBack();
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Room record not found.']);
+                exit;
+            }
+
+            // Unlink any tenants assigned to this room
+            $stmtUnlink = $pdo->prepare("UPDATE users SET unit_code = NULL WHERE unit_code = ?");
+            $stmtUnlink->execute([$room['unit_code']]);
+
+            // Delete the room
+            $stmtDel = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
+            $stmtDel->execute([$roomId]);
+
+            $pdo->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => "Unit {$room['unit_code']} has been permanently deleted from inventory.",
+                'unit_code' => $room['unit_code']
+            ]);
+
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Could not delete room: ' . $e->getMessage()]);
+        }
+
     } else {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Unknown action.']);

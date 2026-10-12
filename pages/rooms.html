@@ -381,6 +381,62 @@
     </div>
   </div>
 
+  <!-- Modal: Edit Rental Unit (File Maintenance) -->
+  <div class="modal fade" id="editRoomModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-navy text-white">
+          <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-pencil-square me-2"></i> Edit Unit Specifications</h5>
+          <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <form id="editRoomForm">
+          <input type="hidden" id="editRoomId" name="id">
+          <div class="modal-body p-4">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="editRoomNumber" class="form-label small fw-bold text-navy">Unit Identifier</label>
+                <input type="text" class="form-control" id="editRoomNumber" required placeholder="e.g. BH-01">
+              </div>
+              <div class="col-md-6">
+                <label for="editRoomType" class="form-label small fw-bold text-navy">Rental Category</label>
+                <select class="form-control" id="editRoomType" required onchange="document.getElementById('editRoomRate').value = this.value === 'Private Boarding House' ? 8000 : 3500;">
+                  <option value="Boarding House Rental">Boarding House Rental</option>
+                  <option value="Private Boarding House">Private Boarding House</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="editRoomRate" class="form-label small fw-bold text-navy">Monthly Rate (₱)</label>
+                <input type="number" class="form-control" id="editRoomRate" required value="3500">
+              </div>
+              <div class="col-md-6">
+                <label for="editRoomCapacity" class="form-label small fw-bold text-navy">Max Pax Limit</label>
+                <input type="number" class="form-control" id="editRoomCapacity" required min="1" max="10" value="3">
+              </div>
+              <div class="col-12">
+                <label for="editRoomStatus" class="form-label small fw-bold text-navy">Unit Occupancy Status</label>
+                <select class="form-control" id="editRoomStatus" required>
+                  <option value="available">Available (Vacant)</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="maintenance">Under Maintenance</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label for="editRoomInclusions" class="form-label small fw-bold text-navy">Inclusions & Description</label>
+                <textarea class="form-control" id="editRoomInclusions" rows="2" placeholder="e.g. Individual room, kitchen area, shared CR. Bills excluded."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-save me-1"></i> Update Unit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Assign Tenant to Vacant Unit -->
   <div class="modal fade" id="addTenantModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
