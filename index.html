@@ -59,8 +59,13 @@
     <!-- Hero Section -->
     <section class="hero-ebh" id="heroSection">
       <div class="container text-center">
-        <div class="hero-pill-badge">
-          <i class="bi bi-geo-alt-fill text-info"></i> Soldiers Village, Brgy. Sta. Lucia, Pasig City
+        <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mb-3">
+          <div class="hero-pill-badge mb-0">
+            <i class="bi bi-geo-alt-fill text-info"></i> Soldiers Village, Brgy. Sta. Lucia, Pasig City
+          </div>
+          <div class="hero-pill-badge mb-0" id="heroAvailBadge">
+            <i class="bi bi-door-open-fill text-warning"></i> <span id="heroAvailRoomsText">1 Unit Available Left</span>
+          </div>
         </div>
         <h1 class="display-4 fw-bold mb-3 text-white">6 Boarding House Units for Rent</h1>
         <p class="lead mb-4 mx-auto" style="max-width: 700px;">
@@ -133,9 +138,12 @@
                 <div>
                   <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-navy mb-0">Boarding House Rental</h5>
-                    <span class="badge bg-primary text-white">4 Units</span>
+                    <span id="indexBhAvailBadge" class="badge bg-danger text-white"><i class="bi bi-slash-circle me-1"></i> Fully Booked (0/4 Avail)</span>
                   </div>
                   <div class="h3 fw-bold text-navy mb-2">₱3,500 <span class="fs-6 fw-normal text-muted">/ mo (1 room)</span></div>
+                  <div id="indexBhNotice" class="small py-1 px-2 rounded mb-2 bg-light text-muted border">
+                    <i class="bi bi-clock-history text-warning me-1"></i> All 4 rooms occupied. Waitlist open.
+                  </div>
                   <p class="text-muted small mb-3">Individual private room and dedicated kitchen area with shared comfort room and common area.</p>
                   <ul class="list-unstyled small text-muted d-flex flex-column gap-1 mb-3">
                     <li><i class="bi bi-check2 text-success me-1"></i> Individual room & kitchen area</li>
@@ -163,9 +171,12 @@
                 <div>
                   <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-navy mb-0">Private Boarding House</h5>
-                    <span class="badge bg-success text-white">2 Units</span>
+                    <span id="indexPbAvailBadge" class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i> 1 of 2 Available</span>
                   </div>
                   <div class="h3 fw-bold text-navy mb-2">₱8,000 <span class="fs-6 fw-normal text-muted">/ mo (entire house)</span></div>
+                  <div id="indexPbNotice" class="small py-1 px-2 rounded mb-2 bg-light text-success border">
+                    <i class="bi bi-check-circle text-success me-1"></i> 1 Private House vacant for immediate move-in!
+                  </div>
                   <p class="text-muted small mb-3">Individual private standalone space with no shared common areas. Ideal for families and privacy.</p>
                   <ul class="list-unstyled small text-muted d-flex flex-column gap-1 mb-3">
                     <li><i class="bi bi-check2 text-success me-1"></i> Own complete private house</li>

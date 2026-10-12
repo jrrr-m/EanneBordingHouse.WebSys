@@ -543,12 +543,80 @@ $(document).ready(function () {
     });
   }
 
+  // Admin Ticket Creation Modal Form
+  const $adminTicketForm = $('#adminCreateTicketForm');
+  if ($adminTicketForm.length) {
+    $('#adminTicketTenant').on('change', function () {
+      const u = $(this).find('option:selected').data('unit') || '';
+      $('#adminTicketUnit').val(u);
+    });
+
+    $adminTicketForm.on('submit', function (e) {
+      e.preventDefault();
+      const $btn = $(this).find('button[type="submit"]');
+      const orig = $btn.html();
+      $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Submitting...');
+
+      $.ajax({
+        url: window.getEbhApiUrl('api_tickets.php'),
+        type: 'POST',
+        data: {
+          action: 'create',
+          tenant_name: $('#adminTicketTenant').val(),
+          unit_code: $('#adminTicketUnit').val(),
+          category: $('#adminTicketCategory').val(),
+          urgency: $('#adminTicketUrgency').val(),
+          description: $('#adminTicketDesc').val()
+        },
+        dataType: 'json',
+        success: function (res) {
+          $btn.prop('disabled', false).html(orig);
+          if (res.success) {
+            $('#createTicketModal').modal('hide');
+            $adminTicketForm[0].reset();
+            showToast('Ticket Created', `Work order #${res.ticket.ticket_no} logged into MySQL.`, 'success');
+            if (typeof window.loadAdminTicketsList === 'function') window.loadAdminTicketsList();
+            window.syncTicketsQueueBadges();
+          } else {
+            showToast('Error', res.error || 'Failed to create ticket', 'danger');
+          }
+        },
+        error: function (xhr, status, err) {
+          $btn.prop('disabled', false).html(orig);
+          showToast('Error', 'Connection failed: ' + err, 'danger');
+        }
+      });
+    });
+  }
+
+  // Admin Tickets Page Controls: Filter Pills & Search
+  $('#ticketFilterPills button').on('click', function () {
+    $('#ticketFilterPills button').removeClass('active');
+    $(this).addClass('active');
+    if (typeof window.renderAdminTicketsTable === 'function') {
+      window.renderAdminTicketsTable();
+    }
+  });
+
+  $('#ticketSearchInput, #ticketCategoryFilter').on('input change', function () {
+    if (typeof window.renderAdminTicketsTable === 'function') {
+      window.renderAdminTicketsTable();
+    }
+  });
+
   // Always sync sidebar and header pending queue badges with live MySQL database on every page
   window.syncPendingQueueBadges();
+  window.syncTicketsQueueBadges();
 
   // Auto-load live dynamic data from MySQL database on page load
   if ($('.kpi-card').length || $('#adminPendingTable').length) {
     window.loadGlobalStats();
+  }
+  if ($('#adminTicketsTable').length) {
+    window.loadAdminTicketsList();
+  }
+  if ($('#heroSection').length || $('#publicAvailRoomsCount').length || $('#bhAvailabilityBadge').length || $('#indexBhAvailBadge').length) {
+    window.syncPublicAvailability();
   }
   if ($('#roomsGridContainer').length) {
     window.loadRoomsGrid();
@@ -572,8 +640,12 @@ $(document).ready(function () {
   // Periodic 10-second polling to keep all statistics, tables, and queues live across tabs
   setInterval(function () {
     window.syncPendingQueueBadges();
+    window.syncTicketsQueueBadges();
     if ($('.kpi-card').length || $('#adminPendingTable').length) {
       window.loadGlobalStats();
+    }
+    if ($('#heroSection').length || $('#publicAvailRoomsCount').length || $('#bhAvailabilityBadge').length || $('#indexBhAvailBadge').length) {
+      window.syncPublicAvailability();
     }
   }, 10000);
 });
@@ -619,6 +691,38 @@ window.syncPendingQueueBadges = function (count) {
           applyCount(res.counts.pending);
           if ($('#totalPaymentsCount').length) $('#totalPaymentsCount').text(res.counts.total);
           if ($('#verifiedCountBadge').length) $('#verifiedCountBadge').text(res.counts.verified);
+        }
+      }
+    });
+  }
+};
+
+// Global Real-time Tickets Queue Badges Synchronizer
+window.syncTicketsQueueBadges = function (count) {
+  function applyCount(cnt) {
+    const num = Math.max(0, parseInt(cnt) || 0);
+    $('.tickets-queue-badge, #sidebarTicketsBadge').each(function () {
+      $(this).text(num);
+      if ($(this).hasClass('badge')) {
+        if (num === 0) {
+          $(this).removeClass('badge-danger').addClass('badge-secondary').css('opacity', '0.65');
+        } else {
+          $(this).removeClass('badge-secondary').addClass('badge-danger').css('opacity', '1');
+        }
+      }
+    });
+  }
+
+  if (typeof count !== 'undefined' && count !== null) {
+    applyCount(count);
+  } else {
+    $.ajax({
+      url: window.getEbhApiUrl('api_tickets.php'),
+      type: 'GET',
+      dataType: 'json',
+      success: function (res) {
+        if (res && res.counts) {
+          applyCount(res.counts.open);
         }
       }
     });
@@ -1341,6 +1445,16 @@ window.loadGlobalStats = function () {
       if ($('#reportCompoundUnitsSub').length) {
         $('#reportCompoundUnitsSub').html(`<i class="bi bi-house-check"></i> ${kpi.occupied_units} Occupied &bull; ${kpi.available_units} Avail`);
       }
+
+      // Live Tickets Queue Badge Synchronization
+      if (typeof kpi.open_tickets !== 'undefined') {
+        window.syncTicketsQueueBadges(kpi.open_tickets);
+      }
+
+      // Public Website Live Availability Synchronization
+      if (typeof window.applyPublicAvailabilityData === 'function') {
+        window.applyPublicAvailabilityData(kpi, b);
+      }
     }
   });
 };
@@ -1687,5 +1801,357 @@ window.copyToClipboard = function (text, label) {
     showToast('Copied to Clipboard', `${lbl || 'Item'}: ${val}`, 'success');
   }
 };
+
+// ====================================================================
+// PUBLIC WEBSITE AVAILABILITY SYNCHRONIZATION
+// ====================================================================
+
+window.applyPublicAvailabilityData = function (kpi, b) {
+  if (!kpi || !b) return;
+
+  // 1. Total available units pill / counter
+  const availCount = parseInt(kpi.available_units) || 0;
+  if ($('#heroAvailRoomsText').length) {
+    if (availCount > 0) {
+      $('#heroAvailRoomsText').text(`${availCount} Unit${availCount === 1 ? '' : 's'} Available Left`);
+      $('#heroAvailBadge').removeClass('d-none');
+    } else {
+      $('#heroAvailRoomsText').text('Currently Fully Booked (0 Units Left)');
+      $('#heroAvailBadge').removeClass('d-none');
+    }
+  }
+
+  if ($('#publicAvailRoomsCount').length) {
+    $('#publicAvailRoomsCount').text(`${availCount} Left`);
+  }
+  if ($('#publicAvailRoomsSub').length) {
+    $('#publicAvailRoomsSub').text(availCount > 0 ? 'Vacant Now' : 'Join Waitlist');
+  }
+
+  // 2. Boarding House Room Availability (4 Units total)
+  const bhAvail = (b.boarding_house && typeof b.boarding_house.available !== 'undefined') ? parseInt(b.boarding_house.available) : 0;
+  const bhTotal = (b.boarding_house && typeof b.boarding_house.total !== 'undefined') ? parseInt(b.boarding_house.total) : 4;
+  if ($('#indexBhAvailBadge').length) {
+    if (bhAvail > 0) {
+      $('#indexBhAvailBadge').removeClass('bg-danger').addClass('bg-success text-white').html(`<i class="bi bi-check-circle-fill me-1"></i> ${bhAvail} of ${bhTotal} Available`);
+    } else {
+      $('#indexBhAvailBadge').removeClass('bg-success').addClass('bg-danger text-white').html(`<i class="bi bi-slash-circle me-1"></i> Fully Booked (0/${bhTotal} Avail)`);
+    }
+  }
+  if ($('#bhAvailabilityBadge').length) {
+    if (bhAvail > 0) {
+      $('#bhAvailabilityBadge').removeClass('bg-danger').addClass('bg-success text-white').html(`<i class="bi bi-check-circle-fill me-1"></i> ${bhAvail} of ${bhTotal} Available`);
+    } else {
+      $('#bhAvailabilityBadge').removeClass('bg-success').addClass('bg-danger text-white').html(`<i class="bi bi-slash-circle me-1"></i> Fully Booked (0/${bhTotal} Avail)`);
+    }
+  }
+  if ($('#indexBhNotice').length) {
+    if (bhAvail > 0) {
+      $('#indexBhNotice').removeClass('text-muted').addClass('text-success').html(`<i class="bi bi-check-circle-fill text-success me-1"></i> ${bhAvail} individual boarding room(s) ready for move-in!`);
+    } else {
+      $('#indexBhNotice').removeClass('text-success').addClass('text-muted').html(`<i class="bi bi-clock-history text-warning me-1"></i> All ${bhTotal} rooms currently occupied. Waitlist open.`);
+    }
+  }
+  if ($('#bhAvailNotice').length) {
+    if (bhAvail > 0) {
+      $('#bhAvailNotice').removeClass('alert-warning').addClass('alert-success').html(`<i class="bi bi-check-circle-fill fs-5 text-success"></i> <span>${bhAvail} of ${bhTotal} individual boarding room(s) available for immediate move-in!</span>`);
+    } else {
+      $('#bhAvailNotice').removeClass('alert-success').addClass('alert-warning').html(`<i class="bi bi-clock-history fs-5 text-warning"></i> <span>All ${bhTotal} individual boarding rooms are currently occupied. Inquire to join the waitlist.</span>`);
+    }
+  }
+
+  // 3. Private Boarding House Availability (2 Units total)
+  const pbAvail = (b.private_house && typeof b.private_house.available !== 'undefined') ? parseInt(b.private_house.available) : 0;
+  const pbTotal = (b.private_house && typeof b.private_house.total !== 'undefined') ? parseInt(b.private_house.total) : 2;
+  if ($('#indexPbAvailBadge').length) {
+    if (pbAvail > 0) {
+      $('#indexPbAvailBadge').removeClass('bg-danger').addClass('bg-success text-white').html(`<i class="bi bi-check-circle-fill me-1"></i> ${pbAvail} of ${pbTotal} Available`);
+    } else {
+      $('#indexPbAvailBadge').removeClass('bg-success').addClass('bg-danger text-white').html(`<i class="bi bi-slash-circle me-1"></i> Fully Booked (0/${pbTotal} Avail)`);
+    }
+  }
+  if ($('#pbAvailabilityBadge').length) {
+    if (pbAvail > 0) {
+      $('#pbAvailabilityBadge').removeClass('bg-danger').addClass('bg-success text-white').html(`<i class="bi bi-check-circle-fill me-1"></i> ${pbAvail} of ${pbTotal} Available`);
+    } else {
+      $('#pbAvailabilityBadge').removeClass('bg-success').addClass('bg-danger text-white').html(`<i class="bi bi-slash-circle me-1"></i> Fully Booked (0/${pbTotal} Avail)`);
+    }
+  }
+  if ($('#indexPbNotice').length) {
+    if (pbAvail > 0) {
+      $('#indexPbNotice').removeClass('text-muted').addClass('text-success').html(`<i class="bi bi-check-circle-fill text-success me-1"></i> ${pbAvail} Private House ready for immediate family move-in!`);
+    } else {
+      $('#indexPbNotice').removeClass('text-success').addClass('text-muted').html(`<i class="bi bi-clock-history text-warning me-1"></i> Both private houses currently occupied. Inquire for openings.`);
+    }
+  }
+  if ($('#pbAvailNotice').length) {
+    if (pbAvail > 0) {
+      $('#pbAvailNotice').removeClass('alert-warning').addClass('alert-success').html(`<i class="bi bi-check-circle-fill fs-5 text-success"></i> <span>${pbAvail} Standalone Private House is vacant and ready for immediate family move-in!</span>`);
+    } else {
+      $('#pbAvailNotice').removeClass('alert-success').addClass('alert-warning').html(`<i class="bi bi-clock-history fs-5 text-warning"></i> <span>Both Standalone Private Houses are currently occupied. Inquire for openings.</span>`);
+    }
+  }
+};
+
+window.syncPublicAvailability = function () {
+  $.ajax({
+    url: window.getEbhApiUrl('api_get_stats.php'),
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res && res.success) {
+        window.applyPublicAvailabilityData(res.kpi, res.breakdown);
+      }
+    }
+  });
+};
+
+// ====================================================================
+// ADMIN MAINTENANCE & SERVICE TICKETS MANAGEMENT
+// ====================================================================
+
+window.loadAdminTicketsList = function () {
+  const $tbody = $('#adminTicketsTbody');
+  if (!$tbody.length) return;
+
+  $.ajax({
+    url: window.getEbhApiUrl('api_tickets.php'),
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (!res || !res.success) {
+        $tbody.html('<tr><td colspan="8" class="text-center py-4 text-danger">Failed to load tickets from MySQL database.</td></tr>');
+        return;
+      }
+
+      window.ebhAdminTicketsCache = res.tickets || [];
+      const counts = res.counts || { total: 0, open: 0, in_progress: 0, resolved: 0 };
+
+      // Update KPI Cards
+      $('#ticketStatTotal').text(counts.total);
+      $('#ticketStatOpen').text(counts.open);
+      $('#ticketStatInProgress').text(counts.in_progress);
+      $('#ticketStatResolved').text(counts.resolved);
+
+      // Update Filter Counts & Badges
+      $('#pillCountAll').text(counts.total);
+      $('#pillCountOpen').text(counts.open);
+      $('#pillCountInProgress').text(counts.in_progress);
+      $('#pillCountResolved').text(counts.resolved);
+      $('#ticketsCountBadge').text(counts.total);
+
+      // Sync badges across sidebars
+      window.syncTicketsQueueBadges(counts.open);
+
+      window.renderAdminTicketsTable();
+    },
+    error: function (xhr, status, err) {
+      $tbody.html(`<tr><td colspan="8" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Error loading tickets: ${err}</td></tr>`);
+    }
+  });
+};
+
+window.renderAdminTicketsTable = function () {
+  const $tbody = $('#adminTicketsTbody');
+  if (!$tbody.length) return;
+
+  const tickets = window.ebhAdminTicketsCache || [];
+  const search = ($('#ticketSearchInput').val() || '').toLowerCase().trim();
+  const catFilter = $('#ticketCategoryFilter').val() || '';
+  const statusFilter = $('#ticketFilterPills button.active').data('filter') || 'all';
+
+  const filtered = tickets.filter(function (t) {
+    if (statusFilter !== 'all' && t.status !== statusFilter) {
+      return false;
+    }
+    if (catFilter && t.category !== catFilter) {
+      return false;
+    }
+    if (search) {
+      const matchNo = (t.ticket_no || '').toLowerCase().indexOf(search) !== -1;
+      const matchTenant = (t.tenant_name || '').toLowerCase().indexOf(search) !== -1;
+      const matchUnit = (t.unit_code || '').toLowerCase().indexOf(search) !== -1;
+      const matchDesc = (t.description || '').toLowerCase().indexOf(search) !== -1;
+      const matchCat = (t.category || '').toLowerCase().indexOf(search) !== -1;
+      if (!matchNo && !matchTenant && !matchUnit && !matchDesc && !matchCat) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    $tbody.html('<tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-info-circle me-1"></i> No matching maintenance tickets found.</td></tr>');
+    return;
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return $('<div>').text(s).html();
+  }
+
+  let rowsHtml = '';
+  filtered.forEach(function (t) {
+    let statusBadge = '';
+    let actionButtons = '';
+
+    if (t.status === 'open') {
+      statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open</span>';
+      actionButtons = `
+        <button type="button" class="btn btn-outline-primary" title="Start Progress" onclick="window.updateTicketStatus(${t.id}, 'in_progress')"><i class="bi bi-play-fill me-1"></i> In Progress</button>
+        <button type="button" class="btn btn-success" title="Mark Resolved" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check-lg"></i></button>
+      `;
+    } else if (t.status === 'in_progress') {
+      statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
+      actionButtons = `
+        <button type="button" class="btn btn-success" title="Mark Resolved" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check-lg me-1"></i> Resolve</button>
+      `;
+    } else {
+      statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved</span>';
+      actionButtons = `
+        <button type="button" class="btn btn-outline-warning" title="Reopen Ticket" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise"></i> Reopen</button>
+      `;
+    }
+
+    const urgencyBadge = t.is_urgent
+      ? '<span class="badge-ebh badge-urgent"><i class="bi bi-lightning-fill"></i> Urgent</span>'
+      : `<span class="badge-ebh ${t.urgency === 'Low' ? 'badge-partial' : 'badge-pending'}"><i class="bi bi-flag"></i> ${esc(t.urgency)}</span>`;
+
+    rowsHtml += `
+      <tr id="ticket-row-${t.id}">
+        <td>
+          <strong class="text-navy">#${esc(t.ticket_no)}</strong>
+          ${t.is_urgent ? '<span class="badge badge-danger text-white ml-1" style="font-size:0.65rem;">URGENT</span>' : ''}
+        </td>
+        <td>
+          <div class="fw-bold text-navy">${esc(t.tenant_name)}</div>
+          <span class="badge bg-light text-dark border small">${esc(t.unit_code)}</span>
+        </td>
+        <td>
+          <span class="badge bg-primary text-white">${esc(t.category)}</span>
+        </td>
+        <td style="max-width: 280px;">
+          <div class="text-truncate text-muted small" title="${esc(t.description)}">${esc(t.description)}</div>
+        </td>
+        <td>${urgencyBadge}</td>
+        <td>${statusBadge}</td>
+        <td class="small text-muted">${esc(t.created_at_short)}</td>
+        <td class="text-right">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" title="View Full Details" onclick="window.previewTicketDetails(${t.id})"><i class="bi bi-eye"></i></button>
+            ${actionButtons}
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  $tbody.html(rowsHtml);
+};
+
+window.updateTicketStatus = function (id, newStatus) {
+  const $row = $('#ticket-row-' + id);
+  if ($row.length) {
+    $row.find('button').prop('disabled', true);
+  }
+
+  $.ajax({
+    url: window.getEbhApiUrl('api_tickets.php'),
+    type: 'POST',
+    data: {
+      action: 'update_status',
+      id: id,
+      status: newStatus
+    },
+    dataType: 'json',
+    success: function (res) {
+      if (res.success) {
+        showToast('Ticket Updated', `Ticket status updated to ${newStatus.replace('_', ' ').toUpperCase()}.`, 'success');
+        $('#viewTicketModal').modal('hide');
+        window.loadAdminTicketsList();
+        if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
+      } else {
+        showToast('Update Failed', res.error || 'Could not update ticket.', 'danger');
+        if ($row.length) $row.find('button').prop('disabled', false);
+      }
+    },
+    error: function (xhr, status, err) {
+      showToast('Error', 'Connection failed: ' + err, 'danger');
+      if ($row.length) $row.find('button').prop('disabled', false);
+    }
+  });
+};
+
+window.previewTicketDetails = function (id) {
+  const tickets = window.ebhAdminTicketsCache || [];
+  const t = tickets.find(item => item.id == id);
+  if (!t) return;
+
+  let statusBadge = '';
+  let actionBtnsHtml = '';
+
+  if (t.status === 'open') {
+    statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open & Pending</span>';
+    actionBtnsHtml = `
+      <button type="button" class="btn btn-primary btn-sm" onclick="window.updateTicketStatus(${t.id}, 'in_progress')"><i class="bi bi-play-circle me-1"></i> Start Progress</button>
+      <button type="button" class="btn btn-success btn-sm" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check2-circle me-1"></i> Mark Resolved</button>
+    `;
+  } else if (t.status === 'in_progress') {
+    statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
+    actionBtnsHtml = `
+      <button type="button" class="btn btn-success btn-sm" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check2-circle me-1"></i> Mark Resolved</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Open</button>
+    `;
+  } else {
+    statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved & Closed</span>';
+    actionBtnsHtml = `
+      <button type="button" class="btn btn-outline-warning btn-sm" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise me-1"></i> Reopen Ticket</button>
+    `;
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return $('<div>').text(s).html();
+  }
+
+  const modalHtml = `
+    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+      <div>
+        <h5 class="fw-bold text-navy mb-0">Ticket #${esc(t.ticket_no)}</h5>
+        <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> Logged on ${esc(t.created_at)}</small>
+      </div>
+      <div>${statusBadge}</div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6">
+        <label class="small text-muted d-block mb-1">Tenant / Reporter</label>
+        <strong class="text-navy">${esc(t.tenant_name)}</strong>
+      </div>
+      <div class="col-sm-6">
+        <label class="small text-muted d-block mb-1">Unit Assignment</label>
+        <span class="badge bg-light text-navy border font-weight-bold">${esc(t.unit_code)}</span>
+      </div>
+      <div class="col-sm-6">
+        <label class="small text-muted d-block mb-1">Category</label>
+        <span class="badge bg-primary text-white">${esc(t.category)}</span>
+      </div>
+      <div class="col-sm-6">
+        <label class="small text-muted d-block mb-1">Urgency Priority</label>
+        <span class="fw-bold ${t.is_urgent ? 'text-danger' : 'text-navy'}"><i class="bi bi-flag-fill me-1"></i> ${esc(t.urgency)}</span>
+      </div>
+    </div>
+
+    <div class="p-3 bg-light rounded-3 border mb-3">
+      <label class="small fw-bold text-navy d-block mb-1"><i class="bi bi-chat-left-text me-1"></i> Problem Description & Notes</label>
+      <p class="mb-0 text-dark small" style="white-space: pre-wrap;">${esc(t.description)}</p>
+    </div>
+
+    ${t.resolved_at ? `<div class="small text-success"><i class="bi bi-check-circle me-1"></i> <strong>Resolved At:</strong> ${esc(t.resolved_at)}</div>` : ''}
+  `;
+
+  $('#viewTicketModalBody').html(modalHtml);
+  $('#viewTicketActionBtns').html(actionBtnsHtml);
+  $('#viewTicketModal').modal('show');
+};
+
 
 

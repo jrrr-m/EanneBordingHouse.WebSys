@@ -67,9 +67,10 @@
           <a href="house-rules.html" class="btn btn-ebh-outline-light btn-lg px-4"><i class="bi bi-shield-check me-1"></i> House Rules</a>
         </div>
         <div class="row mt-5 pt-3 border-top border-white border-opacity-15 text-white g-3 justify-content-center">
-          <div class="col-4 col-md-3"><div class="h3 fw-bold mb-0 text-info">6 Units</div><small class="opacity-75">Total For Rent</small></div>
-          <div class="col-4 col-md-3"><div class="h3 fw-bold mb-0 text-info">2 Types</div><small class="opacity-75">Rental Options</small></div>
-          <div class="col-4 col-md-3"><div class="h3 fw-bold mb-0 text-info">₱3,500 & ₱8k</div><small class="opacity-75">Monthly Rates</small></div>
+          <div class="col-6 col-md-3"><div class="h3 fw-bold mb-0 text-info">6 Units</div><small class="opacity-75">Total Compound</small></div>
+          <div class="col-6 col-md-3"><div class="h3 fw-bold mb-0 text-info">2 Types</div><small class="opacity-75">Rental Options</small></div>
+          <div class="col-6 col-md-3"><div class="h3 fw-bold mb-0 text-info">₱3,500 & ₱8k</div><small class="opacity-75">Monthly Rates</small></div>
+          <div class="col-6 col-md-3"><div class="h3 fw-bold mb-0 text-warning" id="publicAvailRoomsCount">1 Left</div><small class="opacity-75" id="publicAvailRoomsSub">Vacant Now</small></div>
         </div>
       </div>
     </section>
@@ -96,9 +97,12 @@
                 <div>
                   <div class="d-flex justify-content-between align-items-center mb-1">
                     <h4 class="fw-bold text-navy mb-0">Boarding House Rental</h4>
-                    <span class="badge bg-primary text-white">4 Units</span>
+                    <span id="bhAvailabilityBadge" class="badge bg-danger text-white"><i class="bi bi-slash-circle me-1"></i> Fully Booked (0/4 Avail)</span>
                   </div>
                   <div class="display-6 fw-bold text-navy mb-2">₱3,500 <span class="fs-6 fw-normal text-muted">/ month per room</span></div>
+                  <div id="bhAvailNotice" class="alert alert-warning py-2 px-3 small mb-3 border-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-clock-history fs-5 text-warning"></i> <span>All 4 individual boarding rooms are currently occupied. Inquire to join the waitlist.</span>
+                  </div>
                   <p class="text-muted small mb-3">Individual room and kitchen area with shared comfort room. Perfect for budget-conscious tenants, students, and workers.</p>
                   
                   <div class="mb-3">
@@ -142,9 +146,12 @@
                 <div>
                   <div class="d-flex justify-content-between align-items-center mb-1">
                     <h4 class="fw-bold text-navy mb-0">Private Boarding House</h4>
-                    <span class="badge bg-success text-white">2 Units</span>
+                    <span id="pbAvailabilityBadge" class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i> 1 of 2 Available</span>
                   </div>
                   <div class="display-6 fw-bold text-navy mb-2">₱8,000 <span class="fs-6 fw-normal text-muted">/ month (entire house)</span></div>
+                  <div id="pbAvailNotice" class="alert alert-success py-2 px-3 small mb-3 border-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill fs-5 text-success"></i> <span>1 Standalone Private House is vacant and ready for immediate family move-in!</span>
+                  </div>
                   <p class="text-muted small mb-3">Individual private house with complete personal space and no shared common areas. Pang-pamilya at tahimik na pamumuhay.</p>
                   
                   <div class="mb-3">

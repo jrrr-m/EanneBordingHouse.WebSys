@@ -17,6 +17,7 @@ EanneBordingHouse.WebSys/
 │   ├── rooms.html               # Compound room inventory & beds management (Status, rates, assign)
 │   ├── tenants.html             # Active tenants roster (Contracts, contact info, move-out action)
 │   ├── payments.html            # Verification queue for uploaded digital receipts & cash logging
+│   ├── tickets.html             # Caretaker & maintenance tickets queue (Work orders, status updates)
 │   ├── reports.html             # Financial operating ledgers, collection efficiency & CSV export
 │   ├── tenant-dashboard.html    # Tenant portal (Monthly statement, proof upload, tickets)
 │   ├── accommodations.html      # Public room catalog (Boarding House vs Private House specs)
@@ -183,5 +184,13 @@ The system uses AJAX polling and unified helper functions in [`assets/js/script.
   - `payments`: Digital reference numbers, amounts, payment channels (GCash, Maya, BPI, Cash), proof image file paths, timestamps, verification statuses (`pending`, `verified`, `rejected`), and auditor logs.
   - `maintenance_tickets`: Tenant maintenance issues (`ticket_no`, category, urgency, description, status: `open`, `in_progress`, `resolved`).
 
-* **Live Queue Synchronizer:**
-  `window.syncPendingQueueBadges()` periodically monitors [`backend/api_get_payments.php`](backend/api_get_payments.php) every 10 seconds. When an administrator approves a receipt, the transaction immediately transitions to **"Verified & Cleared"**, the queue count decrements across all sidebars and filter tabs, and turns green when the queue reaches zero.
+* **Live Queue & Maintenance Badges:**
+  - `window.syncPendingQueueBadges()` periodically monitors [`backend/api_get_payments.php`](backend/api_get_payments.php) every 10 seconds. When an administrator approves a receipt, the transaction immediately transitions to **"Verified & Cleared"**, the queue count decrements across all sidebars and filter tabs, and turns green when the queue reaches zero.
+  - `window.syncTicketsQueueBadges()` monitors [`backend/api_tickets.php`](backend/api_tickets.php) every 10 seconds. The admin sidebar shows live red notification badges for open maintenance tickets and enables one-click status transitions (`In Progress`, `Resolved`, `Reopen`).
+
+* **Live Public Website Vacancy & Room Availability:**
+  - `window.syncPublicAvailability()` calls [`backend/api_get_stats.php`](backend/api_get_stats.php) on public page loads (`index.html`, `pages/accommodations.html`).
+  - Automatically displays remaining total available units left in the compound (e.g. `1 Unit Available Left`).
+  - Dynamically updates room type status badges:
+    - **Boarding House (4 Units)**: Shows whether units are available or dynamically flags **"Fully Booked (0/4 Available)"** with a waitlist notice.
+    - **Private Boarding House (2 Units)**: Shows vacancy counts (e.g. **"1 of 2 Available"**) with move-in ready indicators.

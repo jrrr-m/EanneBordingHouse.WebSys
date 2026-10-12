@@ -487,7 +487,10 @@ h1.text-white, h2.text-white, h3.text-white, h4.text-white, h5.text-white, h6.te
 }
 .badge-verified, .badge-paid { background: #e8f7ee; color: #157347; border: 1px solid rgba(21, 115, 71, 0.25); }
 .badge-pending { background: rgba(41, 171, 226, 0.12); color: #0b6b96; border: 1px solid rgba(41, 171, 226, 0.4); }
+.badge-in-progress { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29, 78, 216, 0.3); }
+.badge-open { background: #fff7ed; color: #c2410c; border: 1px solid rgba(194, 65, 12, 0.35); }
 .badge-failed, .badge-rejected { background: #fee2e2; color: #b91c1c; border: 1px solid rgba(185, 28, 28, 0.25); }
+.badge-urgent { background: #fef2f2; color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.35); font-weight: 700; }
 .badge-overdue { background: #fef3c7; color: #92400e; border: 1px solid rgba(217, 119, 6, 0.35); }
 .badge-partial { background: #e0e7ff; color: #3730a3; border: 1px solid rgba(55, 48, 163, 0.25); }
 
