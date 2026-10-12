@@ -34,7 +34,7 @@
         <a href="admin-dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link active"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
-        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto">3</span></a>
+        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto sidebar-queue-badge pending-queue-badge">1</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
 
@@ -80,10 +80,10 @@
             </div>
             <div class="col-md-7 col-lg-8">
               <div class="btn-filter-group justify-content-md-end">
-                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#tenantsTable tbody tr">All Tenants (4)</button>
-                <button type="button" class="btn-filter" data-filter="active" data-target-items="#tenantsTable tbody tr">Active</button>
-                <button type="button" class="btn-filter" data-filter="boarding" data-target-items="#tenantsTable tbody tr">Boarding House (3)</button>
-                <button type="button" class="btn-filter" data-filter="private" data-target-items="#tenantsTable tbody tr">Private House (1)</button>
+                <button type="button" class="btn-filter active" id="filterBtnAllTenants" data-filter="all" data-target-items="#tenantsTable tbody tr">All Tenants (5)</button>
+                <button type="button" class="btn-filter" id="filterBtnActiveTenants" data-filter="active" data-target-items="#tenantsTable tbody tr">Active (5)</button>
+                <button type="button" class="btn-filter" id="filterBtnBhTenants" data-filter="boarding" data-target-items="#tenantsTable tbody tr">Boarding House (4)</button>
+                <button type="button" class="btn-filter" id="filterBtnPbTenants" data-filter="private" data-target-items="#tenantsTable tbody tr">Private House (1)</button>
               </div>
             </div>
           </div>

@@ -34,7 +34,7 @@
         <a href="admin-dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Beds</span></a>
-        <a href="payments.html" class="sidebar-link active"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto" id="pendingQueueBadge">3</span></a>
+        <a href="payments.html" class="sidebar-link active"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto sidebar-queue-badge pending-queue-badge" id="sidebarQueueBadge">1</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
 
@@ -57,7 +57,7 @@
           <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" id="sidebarToggleBtn"><i class="bi bi-list fs-5"></i></button>
           <div>
             <h5 class="mb-0 fw-bold text-navy">Rent Payment Verification Queue</h5>
-            <small class="text-muted"><span id="paymentCountBadge" class="fw-bold text-primary">7</span> Records Displayed</small>
+            <small class="text-muted"><span id="paymentCountBadge" class="fw-bold text-primary">8</span> Records Displayed</small>
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -80,9 +80,9 @@
             </div>
             <div class="col-md-7 col-lg-8">
               <div class="btn-filter-group justify-content-md-end">
-                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#paymentsTable tbody tr">All Receipts</button>
-                <button type="button" class="btn-filter" data-filter="pending" data-target-items="#paymentsTable tbody tr"><i class="bi bi-clock-history text-warning"></i> Pending Verification (3)</button>
-                <button type="button" class="btn-filter" data-filter="verified" data-target-items="#paymentsTable tbody tr"><i class="bi bi-check-circle text-success"></i> Verified / Paid</button>
+                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#paymentsTable tbody tr">All Receipts (<span id="totalPaymentsCount">8</span>)</button>
+                <button type="button" class="btn-filter" data-filter="pending" data-target-items="#paymentsTable tbody tr"><i class="bi bi-clock-history text-warning"></i> Pending Verification (<span class="pending-queue-badge" id="pendingFilterBadge">1</span>)</button>
+                <button type="button" class="btn-filter" data-filter="verified" data-target-items="#paymentsTable tbody tr"><i class="bi bi-check-circle text-success"></i> Verified & Cleared (<span id="verifiedCountBadge">7</span>)</button>
                 <button type="button" class="btn-filter" data-filter="overdue" data-target-items="#paymentsTable tbody tr"><i class="bi bi-exclamation-octagon text-danger"></i> Overdue</button>
               </div>
             </div>
@@ -123,7 +123,7 @@
                   <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
                   <td class="text-end">
                     <div class="action-btn-group btn-group btn-group-sm">
-                      <button class="btn btn-outline-secondary" title="View Digital Receipt" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-secondary" title="View Digital Receipt & Proof" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 1)"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-success" title="Approve & Mark Verified" onclick="processPayment('101', 'approved')"><i class="bi bi-check-lg"></i> Approve</button>
                       <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('101', 'rejected')"><i class="bi bi-x-lg"></i></button>
                     </div>
@@ -148,7 +148,7 @@
                   <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
                   <td class="text-end">
                     <div class="action-btn-group btn-group btn-group-sm">
-                      <button class="btn btn-outline-secondary" title="View Digital Receipt" onclick="previewReceiptModal('BPI-441029', 'Juan Dela Cruz', 'Unit BH-03', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-secondary" title="View Digital Receipt & Proof" onclick="previewReceiptModal('BPI-441029', 'Juan Dela Cruz', 'Unit BH-03', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029', 'uploads/payments/sample_bpi_receipt.svg', 'pending', 2)"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-success" title="Approve & Mark Verified" onclick="processPayment('102', 'approved')"><i class="bi bi-check-lg"></i> Approve</button>
                       <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('102', 'rejected')"><i class="bi bi-x-lg"></i></button>
                     </div>
@@ -173,7 +173,7 @@
                   <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
                   <td class="text-end">
                     <div class="action-btn-group btn-group btn-group-sm">
-                      <button class="btn btn-outline-secondary" title="View Digital Receipt" onclick="previewReceiptModal('REF-883719', 'Ana Bautista & Family', 'Private House 1', '8000', 'Oct 1, 2026', 'GCash Transfer', 'REF-883719')"><i class="bi bi-eye"></i></button>
+                      <button class="btn btn-outline-secondary" title="View Digital Receipt & Proof" onclick="previewReceiptModal('REF-883719', 'Ana Bautista & Family', 'Private House 1', '8000', 'Oct 1, 2026', 'GCash Transfer', 'REF-883719', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 3)"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-success" title="Approve & Mark Verified" onclick="processPayment('103', 'approved')"><i class="bi bi-check-lg"></i> Approve</button>
                       <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('103', 'rejected')"><i class="bi bi-x-lg"></i></button>
                     </div>
@@ -260,12 +260,12 @@
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <form id="recordCashForm" onsubmit="event.preventDefault(); const tenant=$('#cashTenantSelect').val(); const amt=$('#cashAmountInput').val(); showToast('Cash Payment Logged', '₱' + amt + ' recorded for ' + tenant, 'success'); $('#recordCashModal').modal('hide');">
+        <form id="recordCashForm">
           <div class="modal-body p-4">
             <div class="row g-3">
               <div class="col-12">
                 <label for="cashTenantSelect" class="form-label small fw-bold text-navy">Tenant</label>
-                <select class="form-control" id="cashTenantSelect" required>
+                <select class="form-control" id="cashTenantSelect" name="tenant_name" required>
                   <option value="Carlos Dominguez">Carlos Dominguez - Unit BH-01 (₱3,500)</option>
                   <option value="Maria Clara Santos">Maria Clara Santos - Unit BH-02 (₱3,500)</option>
                   <option value="Juan Dela Cruz">Juan Dela Cruz - Unit BH-03 (₱3,500)</option>
@@ -276,15 +276,15 @@
               </div>
               <div class="col-md-6">
                 <label for="cashAmountInput" class="form-label small fw-bold text-navy">Amount Received (₱)</label>
-                <input type="number" class="form-control" id="cashAmountInput" required value="3500">
+                <input type="number" class="form-control" id="cashAmountInput" name="amount" required value="3500">
               </div>
               <div class="col-md-6">
-                <label class="form-label small fw-bold text-navy">Official Receipt #</label>
-                <input type="text" class="form-control bg-light" readonly value="CSH-1003">
+                <label class="form-label small fw-bold text-navy">Receipt Mode</label>
+                <input type="text" class="form-control bg-light" readonly value="Auto-generated CSH-#">
               </div>
               <div class="col-12">
                 <label class="form-label small fw-bold text-navy">Notes / Remarks</label>
-                <input type="text" class="form-control" placeholder="e.g. Paid in full for October rent">
+                <input type="text" class="form-control" id="cashNotesInput" name="notes" placeholder="e.g. Paid in full for October rent">
               </div>
             </div>
           </div>

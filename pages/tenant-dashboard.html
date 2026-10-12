@@ -74,22 +74,22 @@
         <div class="ebh-card mb-4 border-primary">
           <div class="ebh-card-header bg-navy text-white d-flex justify-content-between align-items-center">
             <div class="text-white">
-              <h6 class="fw-bold text-white mb-0"><i class="bi bi-calendar2-check-fill me-2 text-info"></i> Current Statement: October 2026</h6>
+              <h6 class="fw-bold text-white mb-0"><i class="bi bi-calendar2-check-fill me-2 text-info"></i> Current Statement: <span id="tenantStatementMonth">October 2026</span></h6>
               <small class="text-white-50">Monthly Room Rental Statement</small>
             </div>
-            <span class="badge-ebh badge-pending"><i class="bi bi-hourglass-split"></i> Pending Settlement</span>
+            <span class="badge-ebh badge-verified" id="tenantStatementBadge"><i class="bi bi-check-circle"></i> Verified & Cleared</span>
           </div>
           <div class="ebh-card-body">
             <div class="row align-items-center g-3 mb-4">
               <div class="col-md-6 border-end-md">
                 <span class="text-muted small d-block">Monthly Room Rent</span>
-                <div class="h2 fw-bold text-navy mb-0">₱3,500.00</div>
+                <div class="h2 fw-bold text-navy mb-0" id="tenantStatementRent">₱3,500.00</div>
                 <small class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Bills Excluded (Shouldered by Tenant)</small>
               </div>
               <div class="col-md-6 ps-md-4">
                 <span class="text-muted small d-block">Due Date</span>
-                <div class="h5 fw-bold text-danger mb-1"><i class="bi bi-clock-history me-1"></i> October 5, 2026</div>
-                <small class="text-muted">3 days remaining before 5% late surcharge</small>
+                <div class="h5 fw-bold text-navy mb-1" id="tenantStatementDueDate"><i class="bi bi-calendar-event me-1 text-primary"></i> October 5, 2026</div>
+                <small class="text-muted" id="tenantStatementDueSub">Due every 5th of the month</small>
               </div>
             </div>
 
@@ -132,7 +132,7 @@
                   <td class="fw-bold text-navy">₱3,500.00</td>
                   <td><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
                   <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813')"><i class="bi bi-eye"></i> View</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 1)"><i class="bi bi-eye"></i> View</button>
                   </td>
                 </tr>
                 <tr>
@@ -320,11 +320,13 @@
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <form id="tenantUploadPaymentForm">
+        <form id="tenantUploadPaymentForm" enctype="multipart/form-data">
+          <input type="hidden" name="tenant_name" id="payTenantName" value="Maria Clara Santos">
+          <input type="hidden" name="unit_code" id="payUnitCode" value="BH-02">
           <div class="modal-body p-4">
             <div class="mb-3">
               <label for="payMethodSelect" class="form-label small fw-bold text-navy">Payment Method Used</label>
-              <select class="form-control" id="payMethodSelect" required>
+              <select class="form-control" id="payMethodSelect" name="payment_method" required>
                 <option value="GCash">GCash (0917-555-EBH1)</option>
                 <option value="Maya">Maya QR / Phone</option>
                 <option value="BPI Online">BPI Online Transfer</option>
@@ -336,18 +338,18 @@
             <div class="row g-3 mb-3">
               <div class="col-md-6">
                 <label for="payAmount" class="form-label small fw-bold text-navy">Amount Paid (₱)</label>
-                <input type="number" class="form-control" id="payAmount" required value="3500">
+                <input type="number" class="form-control" id="payAmount" name="amount" required value="3500">
               </div>
               <div class="col-md-6">
                 <label for="payRefNumber" class="form-label small fw-bold text-navy">Reference / Trans #</label>
-                <input type="text" class="form-control" id="payRefNumber" required placeholder="e.g. 992813401">
+                <input type="text" class="form-control" id="payRefNumber" name="reference_no" required placeholder="e.g. 992813401">
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label small fw-bold text-navy">Attach Screenshot / Photo Receipt</label>
-              <input type="file" class="form-control" id="paymentReceiptFile" accept="image/*">
-              <small class="text-muted">Accepted formats: JPG, PNG, screenshot file.</small>
+              <input type="file" class="form-control" id="paymentReceiptFile" name="proof_image" accept="image/*" required>
+              <small class="text-muted">Accepted formats: JPG, PNG, WEBP, SVG screenshot file.</small>
             </div>
 
             <!-- Live image preview box -->

@@ -34,7 +34,7 @@
         <a href="admin-dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.html" class="sidebar-link active"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
-        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto">3</span></a>
+        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto sidebar-queue-badge pending-queue-badge">1</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
 
@@ -76,7 +76,7 @@
               <div class="kpi-icon navy"><i class="bi bi-building"></i></div>
               <div>
                 <div class="kpi-title">Total Units</div>
-                <div class="kpi-value text-navy" data-counter="6">6</div>
+                <div class="kpi-value text-navy" id="roomStatTotal" data-counter="6">6</div>
                 <small class="text-muted">Units in Compound</small>
               </div>
             </div>
@@ -86,8 +86,8 @@
               <div class="kpi-icon blue"><i class="bi bi-person-check-fill"></i></div>
               <div>
                 <div class="kpi-title">Occupied Units</div>
-                <div class="kpi-value text-navy" data-counter="4">4</div>
-                <small class="text-success fw-semibold">67% Occupancy (4/6)</small>
+                <div class="kpi-value text-navy" id="roomStatOccupied" data-counter="5">5</div>
+                <small class="text-success fw-semibold" id="roomStatOccupiedSub">83% Occupancy (5/6)</small>
               </div>
             </div>
           </div>
@@ -96,8 +96,8 @@
               <div class="kpi-icon accent"><i class="bi bi-door-open-fill"></i></div>
               <div>
                 <div class="kpi-title">Available Units</div>
-                <div class="kpi-value text-navy" data-counter="2">2</div>
-                <small class="text-info fw-semibold">1 BH Room, 1 Private House</small>
+                <div class="kpi-value text-navy" id="roomStatAvailable" data-counter="1">1</div>
+                <small class="text-info fw-semibold" id="roomStatAvailableSub">1 Private House Vacant</small>
               </div>
             </div>
           </div>
@@ -106,7 +106,7 @@
               <div class="kpi-icon warning"><i class="bi bi-cash-stack"></i></div>
               <div>
                 <div class="kpi-title">Potential Target</div>
-                <div class="kpi-value text-navy" data-counter="30000" data-prefix="₱">₱30,000</div>
+                <div class="kpi-value text-navy" id="roomStatTarget" data-counter="30000" data-prefix="₱">₱30,000</div>
                 <small class="text-muted">Full 100% capacity</small>
               </div>
             </div>
@@ -117,10 +117,10 @@
         <div class="ebh-card p-3 mb-4">
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="btn-filter-group">
-              <button type="button" class="btn-filter active" data-filter="all" data-target-items="#roomsGridContainer > .filterable-item">All Units (6)</button>
-              <button type="button" class="btn-filter" data-filter="boarding-house" data-target-items="#roomsGridContainer > .filterable-item">Boarding House (4)</button>
-              <button type="button" class="btn-filter" data-filter="private-house" data-target-items="#roomsGridContainer > .filterable-item">Private House (2)</button>
-              <button type="button" class="btn-filter" data-filter="available" data-target-items="#roomsGridContainer > .filterable-item"><i class="bi bi-sparkles text-success"></i> Available Only (2)</button>
+              <button type="button" class="btn-filter active" id="filterBtnAllRooms" data-filter="all" data-target-items="#roomsGridContainer > .filterable-item">All Units (6)</button>
+              <button type="button" class="btn-filter" id="filterBtnBhRooms" data-filter="boarding-house" data-target-items="#roomsGridContainer > .filterable-item">Boarding House (4)</button>
+              <button type="button" class="btn-filter" id="filterBtnPbRooms" data-filter="private-house" data-target-items="#roomsGridContainer > .filterable-item">Private House (2)</button>
+              <button type="button" class="btn-filter" id="filterBtnAvailRooms" data-filter="available" data-target-items="#roomsGridContainer > .filterable-item"><i class="bi bi-sparkles text-success"></i> Available Only (1)</button>
             </div>
             <div class="small text-muted">
               <span class="room-status-dot occupied"></span> Occupied &nbsp;

@@ -34,7 +34,7 @@
         <a href="admin-dashboard.html" class="sidebar-link active"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
         <a href="tenants.html" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.html" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
-        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto" id="pendingQueueBadge">3</span></a>
+        <a href="payments.html" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge badge-warning text-dark ml-auto sidebar-queue-badge pending-queue-badge" id="sidebarQueueBadge">1</span></a>
         <a href="reports.html" class="sidebar-link"><i class="bi bi-file-earmark-bar-graph-fill"></i><span>Reports & Ledgers</span></a>
       </nav>
 
@@ -93,8 +93,8 @@
               <div class="kpi-icon navy"><i class="bi bi-people-fill"></i></div>
               <div>
                 <div class="kpi-title">Active Tenants</div>
-                <div class="kpi-value text-navy" data-counter="4">4</div>
-                <small class="text-success fw-semibold"><i class="bi bi-arrow-up-short"></i> 67% Capacity (4/6 Units)</small>
+                <div class="kpi-value text-navy" id="kpiActiveTenants" data-counter="5">5</div>
+                <small class="text-success fw-semibold" id="kpiActiveTenantsSub"><i class="bi bi-arrow-up-short"></i> 83% Capacity (5/6 Units)</small>
               </div>
             </div>
           </div>
@@ -103,8 +103,8 @@
               <div class="kpi-icon blue"><i class="bi bi-cash-stack"></i></div>
               <div>
                 <div class="kpi-title">Monthly Target</div>
-                <div class="kpi-value text-navy" data-counter="30000" data-prefix="₱">₱30,000</div>
-                <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> Full Compound Target</small>
+                <div class="kpi-value text-navy" id="kpiMonthlyTarget" data-counter="30000" data-prefix="₱">₱30,000</div>
+                <small class="text-muted" id="kpiMonthlyTargetSub"><i class="bi bi-calendar3 me-1"></i> Full Compound Target</small>
               </div>
             </div>
           </div>
@@ -113,8 +113,8 @@
               <div class="kpi-icon warning"><i class="bi bi-hourglass-split"></i></div>
               <div>
                 <div class="kpi-title">Pending Verification</div>
-                <div class="kpi-value text-navy" data-counter="3" id="queueBadgeCount">3</div>
-                <small class="text-warning fw-semibold"><i class="bi bi-clock-history me-1"></i> Receipts in queue</small>
+                <div class="kpi-value text-navy" id="queueBadgeCount" data-counter="0">0</div>
+                <small class="text-warning fw-semibold" id="kpiPendingSub"><i class="bi bi-clock-history me-1"></i> Receipts in queue</small>
               </div>
             </div>
           </div>
@@ -123,8 +123,8 @@
               <div class="kpi-icon accent"><i class="bi bi-door-open-fill"></i></div>
               <div>
                 <div class="kpi-title">Available Units</div>
-                <div class="kpi-value text-navy" data-counter="2">2</div>
-                <small class="text-info fw-semibold"><i class="bi bi-check2-circle me-1"></i> 1 BH Room, 1 Private House</small>
+                <div class="kpi-value text-navy" id="kpiAvailableUnits" data-counter="1">1</div>
+                <small class="text-info fw-semibold" id="kpiAvailableUnitsSub"><i class="bi bi-check2-circle me-1"></i> 1 Private House</small>
               </div>
             </div>
           </div>
@@ -175,7 +175,7 @@
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 1)"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('101', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('101', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -201,7 +201,7 @@
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('441029', 'Juan Dela Cruz', 'Unit BH-03 (Boarding House)', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('BPI-441029', 'Juan Dela Cruz', 'Unit BH-03 (Boarding House)', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029', 'uploads/payments/sample_bpi_receipt.svg', 'pending', 2)"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('102', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('102', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -227,7 +227,7 @@
                       <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
                       <td class="text-end">
                         <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Receipt" onclick="previewReceiptModal('812049', 'Eduardo & Grace Reyes', 'Unit PB-01 (Private House)', '8000', 'Oct 1, 2026', 'Maya QR Transfer', 'MYA-812049')"><i class="bi bi-eye"></i></button>
+                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('MYA-812049', 'Eduardo & Grace Reyes', 'Unit PB-01 (Private House)', '8000', 'Oct 1, 2026', 'Maya QR Transfer', 'MYA-812049', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 3)"><i class="bi bi-eye"></i></button>
                           <button class="btn btn-success" title="Approve Payment" onclick="processPayment('103', 'approved')"><i class="bi bi-check-lg"></i></button>
                           <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment('103', 'rejected')"><i class="bi bi-x-lg"></i></button>
                         </div>
@@ -247,29 +247,29 @@
               <div class="ebh-card-body">
                 <div class="mb-4">
                   <div class="d-flex justify-content-between small fw-semibold mb-1">
-                    <span>Boarding House Rental Units (4 Units Total - ₱3,500/mo)</span>
-                    <span class="text-navy">3 of 4 Occupied (75%)</span>
+                    <span id="overviewBhTitle">Boarding House Rental Units (4 Units Total - ₱3,500/mo)</span>
+                    <span class="text-navy" id="overviewBhSub">4 of 4 Occupied (100%)</span>
                   </div>
                   <div class="progress" style="height: 10px;">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 75%;" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress-bar bg-primary" id="overviewBhProgress" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
                   </div>
-                  <div class="d-flex gap-2 mt-2 flex-wrap">
+                  <div class="d-flex gap-2 mt-2 flex-wrap" id="overviewBhBadges">
                     <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-01 (Carlos)</span>
                     <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-02 (Maria Clara)</span>
                     <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-03 (Juan)</span>
-                    <span class="badge-ebh badge-verified small"><i class="bi bi-door-open"></i> Unit BH-04 (Vacant - ₱3,500)</span>
+                    <span class="badge-ebh badge-paid small"><i class="bi bi-door-closed"></i> Unit BH-04 (Elena)</span>
                   </div>
                 </div>
 
                 <div>
                   <div class="d-flex justify-content-between small fw-semibold mb-1">
-                    <span>Private Boarding Houses (2 Units Total - ₱8,000/mo)</span>
-                    <span class="text-navy">1 of 2 Occupied (50%)</span>
+                    <span id="overviewPbTitle">Private Boarding Houses (2 Units Total - ₱8,000/mo)</span>
+                    <span class="text-navy" id="overviewPbSub">1 of 2 Occupied (50%)</span>
                   </div>
                   <div class="progress" style="height: 10px;">
-                    <div class="progress-bar bg-success" role="progressbar" style="width: 50%;" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress-bar bg-success" id="overviewPbProgress" role="progressbar" style="width: 50%;" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
                   </div>
-                  <div class="d-flex gap-2 mt-2 flex-wrap">
+                  <div class="d-flex gap-2 mt-2 flex-wrap" id="overviewPbBadges">
                     <span class="badge-ebh badge-paid small"><i class="bi bi-house-door-fill"></i> Unit PB-01 (Reyes Family)</span>
                     <span class="badge-ebh badge-verified small"><i class="bi bi-key-fill"></i> Unit PB-02 (Vacant - ₱8,000)</span>
                   </div>
@@ -311,7 +311,7 @@
                 <h6 class="fw-bold text-navy mb-0"><i class="bi bi-activity me-1 text-info"></i> Recent Activity</h6>
               </div>
               <div class="ebh-card-body p-3">
-                <div class="d-flex flex-column gap-3 small">
+                <div class="d-flex flex-column gap-3 small" id="recentActivityFeed">
                   <div class="d-flex gap-2">
                     <div class="avatar-circle sm bg-success text-white"><i class="bi bi-cash"></i></div>
                     <div>

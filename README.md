@@ -1,0 +1,187 @@
+# Eanne Boarding House Rental Management System
+
+A web-based Boarding House and Rental Property Management System customized for **Eanne Boarding House**, a residential rental compound located in Soldiers Village, Sta. Lucia, Pasig City, Philippines. Built with a responsive frontend, PHP backend, and MySQL database, supporting real-time payment verifications, tenant statements, room inventory, and maintenance requests.
+
+---
+
+## 🗂️ Project Structure & GitHub File Navigation
+
+Below is a map of the repository files, their roles, and linked scripts:
+
+```text
+EanneBordingHouse.WebSys/
+├── index.html                   # Public landing page with room inventory highlights & inquiries
+├── pages/                       # User Interface Pages (Admin & Tenant)
+│   ├── login.html               # Role-based authentication portal (Admin / Tenant)
+│   ├── admin-dashboard.html     # Landlord executive console (KPIs, queue, occupancy overview)
+│   ├── rooms.html               # Compound room inventory & beds management (Status, rates, assign)
+│   ├── tenants.html             # Active tenants roster (Contracts, contact info, move-out action)
+│   ├── payments.html            # Verification queue for uploaded digital receipts & cash logging
+│   ├── reports.html             # Financial operating ledgers, collection efficiency & CSV export
+│   ├── tenant-dashboard.html    # Tenant portal (Monthly statement, proof upload, tickets)
+│   ├── accommodations.html      # Public room catalog (Boarding House vs Private House specs)
+│   ├── house-rules.html         # Property regulations, quiet hours, and occupancy policies
+│   ├── about.html               # Compound history, landlord profile, and property amenities
+│   ├── contact.html             # Map directions, viewing appointment scheduler, and inquiries
+│   └── gallery.html             # Interactive lightbox photo tour of compound and rooms
+│
+├── assets/                      # Styling, JavaScript & Media Assets
+│   ├── css/
+│   │   └── style.css            # Custom CSS design system (Navy/cyan palette, cards, badges)
+│   ├── js/
+│   │   └── script.js            # Frontend logic, live database synchronizer & modal handlers
+│   └── img/                     # Property photography, exterior compound & room mockups
+│
+├── backend/                     # Backend PHP REST Endpoints (PDO MySQL)
+│   ├── db.php                   # Centralized PDO MySQL connection singleton
+│   ├── api_auth.php             # Session & credentials authentication against `users` table
+│   ├── api_get_stats.php        # Live compound KPI metrics, revenue targets, and recent activity
+│   ├── api_rooms.php            # Room CRUD, live occupancy status toggles, and tenant mapping
+│   ├── api_tenants.php          # Tenant roster, contract move-ins, and lease archiving
+│   ├── api_get_payments.php     # Filtered payment transactions, counts, and revenue aggregates
+│   ├── api_update_payment.php   # Approval endpoint (marks 'Verified & Cleared' in MySQL)
+│   ├── api_upload_payment.php   # Receipt upload handler (saves images to uploads/payments/)
+│   ├── api_record_cash.php      # Walk-in OTC cash payment logger
+│   ├── api_tickets.php          # Maintenance ticket submission and status tracking
+│   └── api_tenant_profile.php   # Dynamic tenant billing statement & payment clearance status
+│
+├── database/                    # Database Initializer & SQL Scripts
+│   ├── schema.sql               # Complete MySQL database schema & sample seed data
+│   └── init_db.php              # Automated one-click database table creation script
+│
+├── uploads/                     # File Storage Directory
+│   └── payments/                # Uploaded tenant GCash/Maya/Bank transfer receipt screenshots
+│
+├── NOTES.md                     # Business rules, property specs, and developer reference
+└── README.md                    # Project documentation, architecture & installation guide
+```
+
+---
+
+## 📄 Page Directory & Feature Breakdown
+
+| Page | File | Roles | Core Features |
+| :--- | :--- | :--- | :--- |
+| **Login Portal** | [`pages/login.html`](pages/login.html) | All | Role-based authentication against MySQL (`admin` / `tenant`) with error shake animations. |
+| **Admin Dashboard** | [`pages/admin-dashboard.html`](pages/admin-dashboard.html) | Admin | Live KPI cards (Active Tenants, Monthly Target, Queue, Vacancy), Category Occupancy overview, and Recent Activity feed. |
+| **Rooms & Beds** | [`pages/rooms.html`](pages/rooms.html) | Admin | Real-time 6-unit grid, live status badges (`occupied`, `available`, `maintenance`), tenant assignment, and Add Unit modal. |
+| **Tenants Roster** | [`pages/tenants.html`](pages/tenants.html) | Admin | Resident directory with profile drawer, lease status badges, Register Tenant modal, and Move-Out / Archive action. |
+| **Payments Queue** | [`pages/payments.html`](pages/payments.html) | Admin | Pending receipt review, digital receipt preview with uploaded photo proof, instant **Approve ("Verified & Cleared")** / **Reject**, and Walk-in Cash logging. |
+| **Reports & Ledgers** | [`pages/reports.html`](pages/reports.html) | Admin | Monthly revenue ledger, collection efficiency breakdowns, policy summaries, and dynamic CSV report export. |
+| **Tenant Portal** | [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html) | Tenant | Live billing statement, proof of payment upload form, payment history ledger, and maintenance ticket tracker. |
+| **Public Landing** | [`index.html`](index.html) | Public | Hero showcase, unit rates teaser, inclusions summary, utility notice, and viewing inquiry form. |
+| **Accommodations** | [`pages/accommodations.html`](pages/accommodations.html) | Public | Side-by-side comparison between 4 Boarding House units and 2 Private Houses with detailed specifications. |
+| **House Rules** | [`pages/house-rules.html`](pages/house-rules.html) | Public / Tenant | Detailed compound rules: 3-pax limit, 10 PM quiet curfew (no karaoke), CLAYGO, and utility exclusion guidelines. |
+| **Photo Gallery** | [`pages/gallery.html`](pages/gallery.html) | Public | Filterable photography grid with full-screen lightbox modal for compound and room views. |
+| **Contact & Viewings** | [`pages/contact.html`](pages/contact.html) | Public | Location map, transport routes, Soldiers Village landmark guide, and viewing booking form. |
+
+---
+
+## ⚙️ Installation & Setup (XAMPP)
+
+Follow these steps to set up and run the system on a new computer or local development server:
+
+### 1. Prerequisites
+- **XAMPP** (Apache + MySQL + PHP 7.4 or PHP 8.x) installed on your system.
+- Web browser (Google Chrome, Microsoft Edge, Mozilla Firefox, or Brave).
+
+### 2. Clone or Copy Repository
+Copy the project folder into your XAMPP `htdocs` web root directory:
+```bash
+c:\xampp\htdocs\EanneBordingHouse.WebSys\
+```
+
+### 3. Start Apache & MySQL
+1. Launch the **XAMPP Control Panel**.
+2. Click **Start** for both **Apache** and **MySQL**.
+3. Ensure both modules are highlighted in green.
+
+### 4. Setup the Database (Choose Option A or Option B)
+
+#### Option A: Automatic Setup (Fastest)
+Open your web browser and navigate to:
+```text
+http://localhost/EanneBordingHouse.WebSys/database/init_db.php
+```
+*This script will automatically create the `eanne_boarding_house_db` database, generate all tables (`rooms`, `users`, `payments`, `maintenance_tickets`), and insert the initial seed data.*
+
+#### Option B: Manual Setup via phpMyAdmin
+1. Open your browser and go to [http://localhost/phpmyadmin](http://localhost/phpmyadmin).
+2. Click **New** in the left sidebar to create a database.
+3. Set the database name to: `eanne_boarding_house_db` and collation to: `utf8mb4_unicode_ci` (or `utf8mb4_general_ci`).
+4. Click **Create**.
+5. Select the newly created `eanne_boarding_house_db` database and click the **Import** tab at the top.
+6. Click **Choose File** and select:
+   ```text
+   c:\xampp\htdocs\EanneBordingHouse.WebSys\database\schema.sql
+   ```
+7. Click **Import** (or **Go**) at the bottom of the page to execute the SQL script.
+
+### 5. Access the Application
+Open your web browser and visit:
+```text
+http://localhost/EanneBordingHouse.WebSys/
+```
+
+To sign in directly to the management console:
+```text
+http://localhost/EanneBordingHouse.WebSys/pages/login.html
+```
+
+---
+
+## 🔑 Default Credentials
+
+The initial database seed provides ready-to-use demo accounts for testing:
+
+### 1. Landlord / Property Admin
+- **Username:** `admin`
+- **Password:** `admin12345`
+- **Role:** Administrator (Full compound control, verification queue, room inventory, financial ledgers)
+- **Destination:** [`pages/admin-dashboard.html`](pages/admin-dashboard.html)
+
+### 2. Active Tenant (Maria Clara Santos)
+- **Username:** `tenant`
+- **Password:** `tenant12345`
+- **Role:** Tenant (Unit BH-02 Resident)
+- **Destination:** [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)
+
+*Additional seeded tenants: Carlos Dominguez (`carlos` / `carlos12345`), Juan Dela Cruz (`juan` / `juan12345`), Elena Garcia (`elena` / `elena12345`), and Eduardo & Grace Reyes (`eduardo` / `eduardo12345`).*
+
+---
+
+## 🏢 Business & Property Information
+
+* **Business Name:** Eanne Boarding House Rental
+* **Property Location:** #275 105 St., Soldiers Village, Brgy. Sta. Lucia, Pasig City, Metro Manila
+* **Total Inventory:** **6 Units in Total**
+  1. **4 Boarding House Rentals:**
+     - Rate: **₱3,500.00 / month per room**
+     - Layout: Individual private room, dedicated kitchen area, shared comfort room (CR) and common areas.
+     - Capacity: **Strict maximum 3 pax per room limit**.
+  2. **2 Private Boarding Houses:**
+     - Rate: **₱8,000.00 / month (entire standalone house)**
+     - Layout: Complete standalone private space, private kitchen, private CR, no shared areas.
+     - Capacity: Ideal for families or residents seeking independent living.
+* **Utility Billing Policy:**
+  - **Bills are Excluded:** Electricity (Meralco sub-metered) and water (Manila Water) are shouldered directly by tenants according to actual consumption.
+* **Core House Rules:**
+  - Strict quiet hours after **10:00 PM** (No loud music or karaokes).
+  - Clean As You Go (CLAYGO) in shared premises.
+  - No pets allowed on boarding house premises.
+  - No drilling or architectural renovations without prior written approval.
+
+---
+
+## 📡 Database Architecture & Real-Time Sync
+
+The system uses AJAX polling and unified helper functions in [`assets/js/script.js`](assets/js/script.js) to keep all pages synchronized with MySQL without requiring page reloads:
+
+* **Tables Schema:**
+  - `rooms`: Unit identifier (`BH-01`..`BH-04`, `PB-01`, `PB-02`), classification, monthly rate, capacity, inclusions, and status (`available`, `occupied`, `maintenance`).
+  - `users`: User profiles with role differentiation (`admin`, `tenant`), unit assignments, contract move-in dates, and active/inactive lease statuses.
+  - `payments`: Digital reference numbers, amounts, payment channels (GCash, Maya, BPI, Cash), proof image file paths, timestamps, verification statuses (`pending`, `verified`, `rejected`), and auditor logs.
+  - `maintenance_tickets`: Tenant maintenance issues (`ticket_no`, category, urgency, description, status: `open`, `in_progress`, `resolved`).
+
+* **Live Queue Synchronizer:**
+  `window.syncPendingQueueBadges()` periodically monitors [`backend/api_get_payments.php`](backend/api_get_payments.php) every 10 seconds. When an administrator approves a receipt, the transaction immediately transitions to **"Verified & Cleared"**, the queue count decrements across all sidebars and filter tabs, and turns green when the queue reaches zero.

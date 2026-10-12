@@ -1,0 +1,128 @@
+<?php
+/**
+ * Eanne Boarding House Rental System
+ * API: Tenant Profile & Statement
+ * Live sync with MySQL `users`, `rooms`, and `payments`
+ */
+
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+require_once __DIR__ . '/db.php';
+$pdo = getDbConnection();
+
+try {
+    $tenantName = trim($_GET['name'] ?? $_GET['tenant'] ?? 'Maria Clara Santos');
+    $username = trim($_GET['username'] ?? '');
+
+    $sql = "
+        SELECT 
+            u.id,
+            u.username,
+            u.full_name,
+            u.phone,
+            u.email,
+            u.unit_code,
+            u.monthly_rent,
+            u.move_in_date,
+            u.lease_status,
+            r.room_type,
+            r.inclusions,
+            r.max_pax
+        FROM users u
+        LEFT JOIN rooms r ON u.unit_code = r.unit_code
+        WHERE (u.full_name = ? OR u.username = ?) AND u.role = 'tenant'
+        LIMIT 1
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$tenantName, $username]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        // Fallback to first active tenant
+        $stmt2 = $pdo->query("
+            SELECT 
+                u.id, u.username, u.full_name, u.phone, u.email, u.unit_code, u.monthly_rent, u.move_in_date, u.lease_status,
+                r.room_type, r.inclusions, r.max_pax
+            FROM users u
+            LEFT JOIN rooms r ON u.unit_code = r.unit_code
+            WHERE u.role = 'tenant' AND u.lease_status = 'active'
+            LIMIT 1
+        ");
+        $user = $stmt2->fetch();
+    }
+
+    if (!$user) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Tenant profile not found.']);
+        exit;
+    }
+
+    $rent = (float)$user['monthly_rent'];
+
+    // Check latest payment for current month
+    $stmtPay = $pdo->prepare("
+        SELECT * FROM payments 
+        WHERE tenant_id = ? OR tenant_name = ?
+        ORDER BY created_at DESC 
+        LIMIT 1
+    ");
+    $stmtPay->execute([$user['id'], $user['full_name']]);
+    $latestPayment = $stmtPay->fetch();
+
+    $paymentStatus = 'unpaid';
+    $paymentStatusText = 'Pending Settlement';
+    $badgeClass = 'badge-pending';
+
+    if ($latestPayment) {
+        if ($latestPayment['status'] === 'verified') {
+            $paymentStatus = 'verified';
+            $paymentStatusText = 'Verified & Cleared';
+            $badgeClass = 'badge-verified';
+        } elseif ($latestPayment['status'] === 'pending') {
+            $paymentStatus = 'pending';
+            $paymentStatusText = 'Verification in Progress';
+            $badgeClass = 'badge-pending';
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'profile' => [
+            'id' => (int)$user['id'],
+            'username' => $user['username'],
+            'full_name' => $user['full_name'],
+            'phone' => $user['phone'],
+            'email' => $user['email'],
+            'unit_code' => $user['unit_code'],
+            'room_type' => $user['room_type'] ?? 'Boarding House Rental',
+            'inclusions' => $user['inclusions'] ?? 'Individual room, kitchen area, shared CR. Bills excluded.',
+            'monthly_rent' => $rent,
+            'monthly_rent_formatted' => '₱' . number_format($rent, 2),
+            'move_in_date' => $user['move_in_date'] ? date('M j, Y', strtotime($user['move_in_date'])) : 'Jan 15, 2026',
+            'statement_month' => date('F Y'),
+            'due_date' => date('F 5, Y'),
+            'payment_status' => $paymentStatus,
+            'payment_status_text' => $paymentStatusText,
+            'badge_class' => $badgeClass,
+            'latest_payment' => $latestPayment ? [
+                'reference_no' => $latestPayment['reference_no'],
+                'amount' => (float)$latestPayment['amount'],
+                'payment_method' => $latestPayment['payment_method'],
+                'status' => $latestPayment['status'],
+                'date' => date('M j, Y', strtotime($latestPayment['payment_date']))
+            ] : null
+        ]
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+}

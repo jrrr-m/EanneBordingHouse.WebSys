@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="850" viewBox="0 0 600 850">
+  <defs>
+    <linearGradient id="gcashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005CEE"/>
+      <stop offset="100%" stop-color="#0035A0"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="850" fill="#F0F4F8"/>
+
+  <!-- Phone Card Container -->
+  <g transform="translate(40, 30)" filter="url(#shadow)">
+    <rect width="520" height="790" rx="24" fill="#FFFFFF"/>
+    
+    <!-- Header Banner -->
+    <path d="M 0 24 Q 0 0 24 0 L 496 0 Q 520 0 520 24 L 520 180 L 0 180 Z" fill="url(#gcashGrad)"/>
+    
+    <!-- GCash Logo / Brand Header -->
+    <text x="260" y="55" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800" text-anchor="middle" letter-spacing="1">GCASH RECEIPT</text>
+    <text x="260" y="82" fill="#E0EBFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" text-anchor="middle">Express Send • Successfully Paid</text>
+
+    <!-- Amount Badge -->
+    <g transform="translate(260, 135)">
+      <circle cx="0" cy="0" r="32" fill="#FFFFFF"/>
+      <path d="M -12 2 L -4 10 L 14 -8" fill="none" stroke="#005CEE" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Content Card -->
+    <text x="260" y="235" fill="#1C355E" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="36" font-weight="800" text-anchor="middle">₱3,500.00</text>
+    <text x="260" y="260" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" text-anchor="middle">October Monthly Boarding House Rent</text>
+
+    <!-- Divider Line -->
+    <line x1="40" y1="285" x2="480" y2="285" stroke="#E5E7EB" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+    <!-- Receipt Details List -->
+    <!-- Row 1: Sent To -->
+    <text x="50" y="330" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Sent To</text>
+    <text x="470" y="330" fill="#111827" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" text-anchor="end">EANNE BOARDING HOUSE</text>
+
+    <!-- Row 2: Landlord Mobile -->
+    <text x="50" y="375" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Recipient Number</text>
+    <text x="470" y="375" fill="#111827" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" text-anchor="end">0917-555-EBH1</text>
+
+    <!-- Row 3: Unit Info -->
+    <text x="50" y="420" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Assigned Unit</text>
+    <text x="470" y="420" fill="#005CEE" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" text-anchor="end">Unit BH-02 (Solo Room)</text>
+
+    <!-- Row 4: Resident Name -->
+    <text x="50" y="465" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Tenant / Sender</text>
+    <text x="470" y="465" fill="#111827" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" text-anchor="end">Maria Clara Santos</text>
+
+    <!-- Row 5: Date & Time -->
+    <text x="50" y="510" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Transaction Date</text>
+    <text x="470" y="510" fill="#111827" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" text-anchor="end">Oct 2, 2026 • 2:15 PM</text>
+
+    <!-- Row 6: Reference No -->
+    <text x="50" y="555" fill="#6B7280" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500">Reference Number</text>
+    <text x="470" y="555" fill="#111827" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" text-anchor="end" letter-spacing="1">REF-992813</text>
+
+    <!-- Box: Payment Inclusions Note -->
+    <rect x="50" y="595" width="420" height="70" rx="12" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+    <text x="70" y="625" fill="#1E293B" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">Note: Room rent only (₱3,500).</text>
+    <text x="70" y="645" fill="#64748B" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">Electricity and water bills are excluded and paid separately.</text>
+
+    <!-- Footer Stamp -->
+    <g transform="translate(260, 720)">
+      <rect x="-100" y="-18" width="200" height="36" rx="8" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5"/>
+      <text x="0" y="5" fill="#059669" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="800" text-anchor="middle" letter-spacing="2">OFFICIAL PROOF OF PAYMENT</text>
+    </g>
+  </g>
+</svg>
