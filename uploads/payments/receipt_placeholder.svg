@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="850" viewBox="0 0 600 850">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A365D"/>
+      <stop offset="50%" stop-color="#2B6CB0"/>
+      <stop offset="100%" stop-color="#00A3C4"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="850" fill="#EDF2F7"/>
+
+  <!-- Main Card -->
+  <g transform="translate(40, 25)" filter="url(#cardShadow)">
+    <rect width="520" height="800" rx="20" fill="#FFFFFF"/>
+    
+    <!-- Header Gradient Banner -->
+    <path d="M 0 20 Q 0 0 20 0 L 500 0 Q 520 0 520 20 L 520 170 L 0 170 Z" fill="url(#headerGrad)"/>
+    
+    <!-- Watermark / Branding -->
+    <text x="260" y="45" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="2">EANNE BOARDING HOUSE RENTAL</text>
+    <text x="260" y="75" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" text-anchor="middle">OFFICIAL DIGITAL RECEIPT</text>
+    <text x="260" y="98" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" text-anchor="middle">Electronic Proof of Payment • Verified Transaction</text>
+
+    <!-- Verified Check Circle -->
+    <g transform="translate(260, 140)">
+      <circle cx="0" cy="0" r="28" fill="#FFFFFF" stroke="#00A3C4" stroke-width="3"/>
+      <path d="M -10 1 L -3 8 L 11 -6" fill="none" stroke="#00A3C4" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Rent Amount Display -->
+    <text x="260" y="225" fill="#1A365D" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="800" text-anchor="middle">RENT PAYMENT RECORD</text>
+    <text x="260" y="250" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" text-anchor="middle">Soldiers Village, Sta. Lucia, Pasig City</text>
+
+    <!-- Perforated Divider Line -->
+    <line x1="30" y1="280" x2="490" y2="280" stroke="#CBD5E0" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+    <!-- Transaction Details List -->
+    <!-- Merchant -->
+    <text x="45" y="325" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Property / Payee</text>
+    <text x="475" y="325" fill="#1A202C" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" text-anchor="end">Eanne Boarding House</text>
+
+    <!-- Address -->
+    <text x="45" y="370" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Location</text>
+    <text x="475" y="370" fill="#2D3748" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="500" text-anchor="end">#275 105 St., Soldiers Village, Pasig</text>
+
+    <!-- Contact -->
+    <text x="45" y="415" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Landlord Contact</text>
+    <text x="475" y="415" fill="#2D3748" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" text-anchor="end">0917-555-EBH1</text>
+
+    <!-- Utility Policy Notice -->
+    <text x="45" y="460" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Utilities Policy</text>
+    <text x="475" y="460" fill="#C53030" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" text-anchor="end">Bills Excluded (Sub-metered)</text>
+
+    <!-- Verification Status -->
+    <text x="45" y="505" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Audit Status</text>
+    <text x="475" y="505" fill="#2B6CB0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" text-anchor="end">Official Proof of Payment</text>
+
+    <!-- Security Box -->
+    <rect x="35" y="540" width="450" height="110" rx="12" fill="#F7FAFC" stroke="#E2E8F0"/>
+    <text x="55" y="570" fill="#4A5568" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700">TRANSACTION AUDIT INFORMATION</text>
+    <text x="55" y="595" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">This digital document verifies legitimate receipt upload submitted by resident</text>
+    <text x="55" y="615" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">and securely recorded in Eanne Boarding House Property Management System.</text>
+    <text x="55" y="635" fill="#2B6CB0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600">Automated Audit Trail • MySQL Database Verified Record</text>
+
+    <!-- Footer Barcode Graphic -->
+    <g transform="translate(60, 680)">
+      <!-- Simulated Barcode Bars -->
+      <rect x="0" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="7" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="13" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="23" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="30" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="39" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="45" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="56" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="64" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="70" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="79" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="89" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="96" y="0" width="8" height="40" fill="#2D3748"/>
+      <rect x="108" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="115" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="124" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="130" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="141" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="149" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="156" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="166" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="172" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="181" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="192" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="200" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="206" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="216" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="223" y="0" width="8" height="40" fill="#2D3748"/>
+      <rect x="235" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="241" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="250" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="258" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="269" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="276" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="285" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="291" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="301" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="309" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="316" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="327" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="333" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="342" y="0" width="6" height="40" fill="#2D3748"/>
+      <rect x="352" y="0" width="4" height="40" fill="#2D3748"/>
+      <rect x="360" y="0" width="2" height="40" fill="#2D3748"/>
+      <rect x="366" y="0" width="7" height="40" fill="#2D3748"/>
+      <rect x="377" y="0" width="3" height="40" fill="#2D3748"/>
+      <rect x="384" y="0" width="5" height="40" fill="#2D3748"/>
+      <rect x="393" y="0" width="4" height="40" fill="#2D3748"/>
+    </g>
+    <text x="260" y="740" fill="#A0AEC0" font-family="'Courier New', monospace" font-size="12" font-weight="700" text-anchor="middle">EBH-VERIFIED-TRANSACTION-AUDIT-TRAIL</text>
+    <text x="260" y="765" fill="#718096" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" text-anchor="middle">Keep this electronic receipt for your records • Thank you for paying on time</text>
+  </g>
+</svg>

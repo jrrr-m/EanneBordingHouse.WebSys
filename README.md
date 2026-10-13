@@ -47,11 +47,11 @@ EanneBordingHouse.WebSys/
 │   └── api_tenant_profile.php   # Dynamic tenant billing statement & payment clearance status
 │
 ├── database/                    # Database Initializer & SQL Scripts
-│   ├── schema.sql               # Complete MySQL database schema & sample seed data
-│   └── init_db.php              # Automated one-click database table creation script
+│   ├── schema.sql               # Complete MySQL database schema & 1-year operational dataset (79 payments, 13 tickets)
+│   └── init_db.php              # Automated one-click database table creation & migration tool (supports ?reset=1)
 │
 ├── uploads/                     # File Storage Directory
-│   └── payments/                # Uploaded tenant GCash/Maya/Bank transfer receipt screenshots
+│   └── payments/                # Uploaded tenant GCash/Maya/Bank screenshots & standard receipt placeholder (receipt_placeholder.svg)
 │
 ├── NOTES.md                     # Business rules, property specs, and developer reference
 └── README.md                    # Project documentation, architecture & installation guide
@@ -118,7 +118,10 @@ Open your web browser and navigate to:
 ```text
 http://localhost/EanneBordingHouse.WebSys/database/init_db.php
 ```
-*This script will automatically create the `eanne_boarding_house_db` database, generate all tables (`rooms`, `users`, `payments`, `maintenance_tickets`), and insert the initial seed data.*
+*This script will automatically create the `eanne_boarding_house_db` database, generate all tables (`rooms`, `users`, `payments`, `maintenance_tickets`), and populate the complete 1-year operational dataset (79 payments, 13 maintenance tickets, 6 rental units, and full tenant roster).*
+
+> **Tip:** To re-initialize or reset the database fresh at any time, navigate to:
+> `http://localhost/EanneBordingHouse.WebSys/database/init_db.php?reset=1`
 
 #### Option B: Manual Setup via phpMyAdmin
 1. Open your browser and go to [http://localhost/phpmyadmin](http://localhost/phpmyadmin).
@@ -147,7 +150,7 @@ http://localhost/EanneBordingHouse.WebSys/pages/login.html
 
 ## 🔑 Default Credentials
 
-The initial database seed provides ready-to-use demo accounts for testing:
+The system provides ready-to-use accounts for immediate access and testing:
 
 ### 1. Landlord / Property Admin
 - **Username:** `admin`
@@ -161,7 +164,7 @@ The initial database seed provides ready-to-use demo accounts for testing:
 - **Role:** Tenant (Unit BH-02 Resident)
 - **Destination:** [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)
 
-*Additional seeded tenants: Carlos Dominguez (`carlos` / `carlos12345`), Juan Dela Cruz (`juan` / `juan12345`), Elena Garcia (`elena` / `elena12345`), and Eduardo & Grace Reyes (`eduardo` / `eduardo12345`).*
+*Additional active tenants: Carlos Dominguez (`carlos` / `carlos12345`), Juan Dela Cruz (`juan` / `juan12345`), Elena Garcia (`elena` / `elena12345`), and Eduardo & Grace Reyes (`eduardo` / `eduardo12345`). Historical lease completed: Ricardo Mendoza (`ricardo` / `ricardo12345`).*
 
 ---
 
@@ -222,3 +225,11 @@ The system uses AJAX polling and unified helper functions in [`assets/js/script.
     - [`backend/api_get_payments.php`](backend/api_get_payments.php) automatically extracts and exposes the `rejection_reason` string in JSON payloads for rejected transactions.
     - [`assets/js/script.js`](assets/js/script.js) displays a prominent rejection badge and formatted reason box on both Admin ledgers and the Tenant Portal ([`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)), ensuring complete transparency so the resident knows why the payment was declined and can submit corrected proof without delay.
     - The digital receipt lightbox preview modal also highlights a dedicated red rejection banner with the full recorded reason when reviewing previously rejected receipts.
+
+* **1-Year Operational Dataset & Automated Seeding:**
+  - **Comprehensive Transaction History (79 Payments):** Spanning October 2025 to October 2026, containing 72 verified rent collections totaling **₱351,000.00**, 3 active pending verification queue submissions ready for review, and 4 audit-trailed rejections.
+  - **Standard Electronic Receipt Voucher ([`uploads/payments/receipt_placeholder.svg`](uploads/payments/receipt_placeholder.svg)):** Unified high-fidelity receipt visual featuring compound branding, address, utility notice, transaction details, and audit barcode used across all digital payment proof previews.
+  - **Compound Maintenance Work Orders (13 Tickets):** 11 resolved historical maintenance records across plumbing, electrical, and carpentry, plus 2 active tickets (1 open, 1 in-progress).
+  - **Lease History & Vacancy Turnover:** Includes full tenant profiles with realistic lease turnover (such as Ricardo Mendoza completing his lease in June 2026, leaving Unit PB-02 available).
+  - **One-Click Setup & Migration:** Executable in any browser at `http://localhost/EanneBordingHouse.WebSys/database/init_db.php` or via phpMyAdmin import of [`database/schema.sql`](database/schema.sql).
+

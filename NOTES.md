@@ -30,7 +30,7 @@
 
 ---
 
-## Demo Login Credentials
+## System Login Credentials
 
 ### 1. Landlord (Admin)
 - **Username:** `admin`
@@ -43,6 +43,28 @@
 - **Username:** `tenant`
 - **Password:** `tenant12345`
 - **Destination:** [pages/tenant-dashboard.html](pages/tenant-dashboard.html)
+
+---
+
+### 3. Additional Tenant Accounts
+- **Carlos Dominguez:** `carlos` / `carlos12345` (Unit BH-01, Active)
+- **Juan Dela Cruz:** `juan` / `juan12345` (Unit BH-03, Active)
+- **Elena Garcia:** `elena` / `elena12345` (Unit BH-04, Active)
+- **Eduardo & Grace Reyes:** `eduardo` / `eduardo12345` (Unit PB-01, Active)
+- **Ricardo Mendoza:** `ricardo` / `ricardo12345` (Unit PB-02, Completed Lease)
+
+---
+
+## 1-Year Operational Dataset & Initialization Reference
+
+The database includes a 1-year historical dataset (October 2025 to October 2026) pre-packaged in the database initializer and SQL schema:
+
+### Dataset Overview:
+- **79 Payment Transactions:** 72 verified payments (₱351,000.00 total collections), 3 active pending verification queue submissions, and 4 audit-trailed rejections.
+- **13 Maintenance Tickets:** 11 resolved work orders (plumbing, electrical, carpentry), 1 in-progress ticket, and 1 open ticket.
+- **Standard Receipt Placeholder:** [`uploads/payments/receipt_placeholder.svg`](uploads/payments/receipt_placeholder.svg) provides consistent electronic receipt vouchers across all digital proof previews.
+- **Setup URL:** `http://localhost/EanneBordingHouse.WebSys/database/init_db.php` initializes and populates all tables in one click.
+- **Reset Parameter:** Adding `?reset=1` resets and re-seeds the dataset fresh.
 
 ---
 

@@ -100,9 +100,9 @@ try {
     // 5. Recent Activity Feed (Combine latest payments and tickets)
     $stmtRecentPayments = $pdo->query("
         SELECT 
-            id, reference_no, tenant_name, unit_code, amount, payment_method, status, created_at, verified_at
+            id, reference_no, tenant_name, unit_code, amount, payment_method, status, payment_date, created_at, verified_at
         FROM payments 
-        ORDER BY created_at DESC 
+        ORDER BY payment_date DESC, id DESC 
         LIMIT 6
     ");
     $recentPayments = $stmtRecentPayments->fetchAll();
@@ -110,6 +110,10 @@ try {
     $activities = [];
     foreach ($recentPayments as $rp) {
         $amountFmt = '₱' . number_format((float)$rp['amount'], 2);
+        $vTs = (!empty($rp['verified_at']) && $rp['verified_at'] !== '0000-00-00 00:00:00') 
+            ? strtotime($rp['verified_at']) 
+            : strtotime($rp['payment_date'] ?? $rp['created_at']);
+
         if ($rp['status'] === 'verified') {
             $activities[] = [
                 'type' => 'payment_verified',
@@ -119,7 +123,7 @@ try {
                 'badge_class' => 'badge-verified',
                 'icon' => 'bi-check2-circle',
                 'icon_color' => 'text-success',
-                'timestamp' => $rp['verified_at'] ? date('M j, Y g:i A', strtotime($rp['verified_at'])) : date('M j, Y g:i A', strtotime($rp['created_at']))
+                'timestamp' => $vTs ? date('M j, Y g:i A', $vTs) : 'Recently'
             ];
         } elseif ($rp['status'] === 'pending') {
             $activities[] = [
@@ -130,7 +134,7 @@ try {
                 'badge_class' => 'badge-pending',
                 'icon' => 'bi-clock-history',
                 'icon_color' => 'text-warning',
-                'timestamp' => date('M j, Y g:i A', strtotime($rp['created_at']))
+                'timestamp' => !empty($rp['payment_date']) ? date('M j, Y g:i A', strtotime($rp['payment_date'])) : date('M j, Y g:i A', strtotime($rp['created_at']))
             ];
         }
     }

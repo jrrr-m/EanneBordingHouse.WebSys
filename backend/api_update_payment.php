@@ -1,4 +1,4 @@
-    <?php
+    fyy<?php
 // ====================================================================
 // Eanne Boarding House - Admin Approve / Reject Payment API
 // Updates payment status in MySQL to 'verified' or 'rejected'.
@@ -29,7 +29,7 @@ try {
     }
 
     if (!in_array($action, ['approve', 'verify', 'reject'])) {
-        throw new Exception("Invalid action. Must be 'approve', 'verify', or 'reject'.");   
+        throw new Exception("Invalid action. Must be 'approve', 'verify', or 'reject'.");
     }
 
     // Check if payment exists
