@@ -9,7 +9,7 @@ header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -59,6 +59,15 @@ try {
 
     $payments = [];
     foreach ($rows as $r) {
+        $adminNotes = $r['admin_notes'] ?? '';
+        $rejectionReason = '';
+        if ($r['status'] === 'rejected' && !empty($adminNotes)) {
+            if (preg_match('/^Reason:\s*(.*?)(?:\s*\(Rejected by|$)/is', $adminNotes, $m)) {
+                $rejectionReason = trim($m[1]);
+            } else {
+                $rejectionReason = $adminNotes;
+            }
+        }
         $payments[] = [
             'id' => intval($r['id']),
             'reference_no' => $r['reference_no'],
@@ -75,6 +84,7 @@ try {
             'payment_date_short' => date('M j, Y', strtotime($r['payment_date'])),
             'status' => $r['status'],
             'admin_notes' => $r['admin_notes'],
+            'rejection_reason' => $rejectionReason ?: null,
             'verified_at' => $r['verified_at'] ? date('M j, Y (g:i A)', strtotime($r['verified_at'])) : null,
             'verified_by' => $r['verified_by'],
             'created_at' => $r['created_at']

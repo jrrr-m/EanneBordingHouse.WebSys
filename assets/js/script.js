@@ -836,11 +836,234 @@ window.syncTicketsQueueBadges = function (count) {
   }
 };
 
+// Sanitization Helpers for HTML and JS Strings
+window.escapeHtml = function (str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+window.escapeJs = function (str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '');
+};
+
+// Open Reject Payment Verification Modal with Target Info & Reason Prompt
+window.openRejectPaymentModal = function (id, refNo, tenantName, amount, unitCode) {
+  const $row = $('#payment-row-' + id);
+  let resolvedRef = refNo || '';
+  let resolvedTenant = tenantName || '';
+  let resolvedUnit = unitCode || '';
+  let resolvedAmount = amount || '';
+
+  if ($row.length) {
+    if (!resolvedRef) {
+      resolvedRef = $row.find('td').eq(0).text().trim();
+    }
+    if (!resolvedTenant) {
+      resolvedTenant = $row.find('.avatar-circle').next().find('span').text().trim() || $row.find('td').eq(1).find('.fw-bold').text().trim() || $row.find('td').eq(0).find('.fw-bold').text().trim();
+    }
+    if (!resolvedUnit) {
+      resolvedUnit = $row.find('.avatar-circle').next().find('small').text().trim() || $row.find('td').eq(1).find('.text-muted').text().trim() || $row.find('td').eq(0).find('.text-muted').text().trim();
+    }
+    if (!resolvedAmount) {
+      resolvedAmount = $row.find('td').eq(2).text().trim() || $row.find('td').eq(1).text().trim();
+    }
+  }
+
+  resolvedRef = resolvedRef || ('REF-' + id);
+  resolvedTenant = resolvedTenant || 'Tenant';
+  resolvedAmount = resolvedAmount || 'Rent Payment';
+
+  // Ensure Reject Modal exists in DOM
+  if (!$('#rejectPaymentModal').length) {
+    $('body').append(`
+      <div class="modal fade" id="rejectPaymentModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+              <h6 class="modal-title fw-bold text-white mb-0">
+                <i class="bi bi-x-circle me-2"></i> Reject Payment Verification
+              </h6>
+              <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <form id="rejectPaymentForm" novalidate onsubmit="event.preventDefault(); window.confirmRejectPayment(); return false;">
+              <input type="hidden" id="rejectPaymentId" value="">
+              <div class="modal-body p-4 bg-light">
+                <!-- Payment target summary banner -->
+                <div class="card border mb-3 shadow-sm bg-white">
+                  <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <span class="badge badge-secondary px-2 py-1 mb-1" id="rejectPaymentRef"></span>
+                        <h6 class="fw-bold text-navy mb-0" id="rejectTenantName"></h6>
+                        <small class="text-muted d-block" id="rejectUnitCode"></small>
+                      </div>
+                      <div class="text-end">
+                        <span class="text-muted small d-block">Amount Due</span>
+                        <strong class="fs-5 text-danger" id="rejectAmount"></strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-navy mb-1">
+                    Select Common Rejection Reason
+                  </label>
+                  <select class="form-control form-control-sm mb-2" id="rejectPresetSelect" onchange="window.handleRejectPresetChange ? window.handleRejectPresetChange(this.value) : (this.value && this.value !== 'custom' ? document.getElementById('rejectReasonText').value = this.value : null)">
+                    <option value="">-- Choose a standard reason (optional) --</option>
+                    <option value="Unclear or blurry proof of payment. Transaction reference number and amount are unreadable.">Unclear or blurry receipt screenshot</option>
+                    <option value="Reference / Transaction number does not match the uploaded proof of payment.">Reference number mismatch</option>
+                    <option value="Incorrect payment amount. Sent amount does not match current rent balance.">Incorrect payment amount</option>
+                    <option value="Duplicate submission. This transaction receipt was already recorded or claimed.">Duplicate receipt submission</option>
+                    <option value="Payment not received in owner's GCash / BPI bank account. Please check recipient number.">Payment not found in landlord account</option>
+                    <option value="Payment sent to wrong recipient / invalid account.">Wrong recipient account used</option>
+                    <option value="Expired or altered transaction screenshot.">Invalid or altered screenshot</option>
+                    <option value="custom">Other / Custom reason</option>
+                  </select>
+
+                  <div class="d-flex flex-wrap gap-1 mb-3" id="rejectQuickChips">
+                    <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Unclear or blurry receipt. Please re-upload a clear image showing reference number and amount."><i class="bi bi-tag me-1"></i> Blurry receipt</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Reference number does not match uploaded receipt screenshot."><i class="bi bi-tag me-1"></i> Ref # mismatch</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Payment amount does not match current rent bill."><i class="bi bi-tag me-1"></i> Incorrect amount</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Transaction not found in landlord's bank / GCash history."><i class="bi bi-tag me-1"></i> Not received</button>
+                  </div>
+
+                  <label for="rejectReasonText" class="form-label small fw-bold text-navy mb-1">
+                    Reason for Rejection <span class="text-danger">*</span>
+                  </label>
+                  <textarea class="form-control" id="rejectReasonText" rows="3" placeholder="Type or select the reason why this payment is being rejected..."></textarea>
+                  <div class="invalid-feedback">Please specify a reason before rejecting.</div>
+
+                  <div class="alert alert-light border small text-muted mt-2 mb-0 py-2 px-3">
+                    <i class="bi bi-info-circle text-primary me-1"></i> <strong>Audit Trail:</strong> This reason will be recorded in MySQL and displayed to the tenant on their portal so they know what to fix.
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer bg-white border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnConfirmReject" onclick="if(window.confirmRejectPayment){ window.confirmRejectPayment(); }">
+                  <i class="bi bi-x-circle me-1"></i> Confirm Rejection
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Populate fields
+  $('#rejectPaymentId').val(id);
+  $('#rejectPaymentRef').text(resolvedRef);
+  $('#rejectTenantName').text(resolvedTenant);
+  $('#rejectUnitCode').text(resolvedUnit);
+  $('#rejectAmount').text(resolvedAmount);
+  $('#rejectPresetSelect').val('');
+  $('#rejectReasonText').val('').removeClass('is-invalid');
+
+  $('#rejectPaymentModal').modal('show');
+};
+
+// Global Handlers for Rejection Modal (works vanilla and with jQuery)
+window.handleRejectPresetChange = function (val) {
+  const reasonEl = document.getElementById('rejectReasonText');
+  if (!reasonEl) return;
+  if (val && val !== 'custom') {
+    reasonEl.value = val;
+    $(reasonEl).removeClass('is-invalid');
+  } else if (val === 'custom') {
+    reasonEl.value = '';
+    reasonEl.focus();
+    $(reasonEl).removeClass('is-invalid');
+  }
+};
+
+window.setRejectReasonChip = function (chipReason) {
+  const reasonEl = document.getElementById('rejectReasonText');
+  const presetEl = document.getElementById('rejectPresetSelect');
+  if (reasonEl && chipReason) {
+    reasonEl.value = chipReason;
+    $(reasonEl).removeClass('is-invalid');
+  }
+  if (presetEl) {
+    presetEl.value = '';
+  }
+};
+
+window.confirmRejectPayment = function () {
+  const pId = $('#rejectPaymentId').val();
+  const reasonEl = document.getElementById('rejectReasonText');
+  const presetEl = document.getElementById('rejectPresetSelect');
+  let reasonVal = reasonEl ? reasonEl.value.trim() : '';
+  const presetVal = presetEl ? presetEl.value : '';
+
+  // Fallback: If reason textarea is blank but preset was chosen, auto-fill it!
+  if (!reasonVal && presetVal && presetVal !== 'custom') {
+    reasonVal = presetVal;
+    if (reasonEl) reasonEl.value = presetVal;
+  }
+
+  if (!reasonVal) {
+    if (reasonEl) {
+      $(reasonEl).addClass('is-invalid').focus();
+    }
+    return;
+  }
+
+  if (reasonEl) $(reasonEl).removeClass('is-invalid');
+
+  const $btn = $('#btnConfirmReject');
+  const origHtml = $btn.html();
+  $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Rejecting...');
+
+  window.processPayment(pId, 'rejected', reasonVal);
+
+  $('#rejectPaymentModal').modal('hide');
+  setTimeout(function () {
+    $btn.prop('disabled', false).html(origHtml);
+  }, 500);
+};
+
+// Rejection Reason Modal Global Event Listeners (Delegated)
+$(document).on('change', '#rejectPresetSelect', function () {
+  window.handleRejectPresetChange($(this).val());
+});
+
+$(document).on('click', '.reject-chip', function () {
+  window.setRejectReasonChip($(this).data('reason') || $(this).attr('data-reason'));
+});
+
+$(document).on('submit', '#rejectPaymentForm', function (e) {
+  e.preventDefault();
+  window.confirmRejectPayment();
+});
+
 // Admin Payment Verification Action (Syncs live with MySQL)
 window.processPayment = function (id, action, notes) {
   const isApprove = action === 'approved' || action === 'approve' || action === 'verify';
   const apiAction = isApprove ? 'approve' : 'reject';
   const $row = $('#payment-row-' + id);
+
+  // If rejecting and no reason was provided, intercept and show the Rejection Reason modal
+  if (!isApprove && (!notes || String(notes).trim() === '')) {
+    if (typeof window.openRejectPaymentModal === 'function') {
+      window.openRejectPaymentModal(id);
+      return;
+    }
+  }
 
   if ($row.length) {
     $row.find('.action-btn-group button').prop('disabled', true);
@@ -852,6 +1075,7 @@ window.processPayment = function (id, action, notes) {
     data: {
       id: id,
       action: apiAction,
+      reason: (!isApprove && notes) ? notes : '',
       notes: notes || '',
       reviewer: 'Landlord Admin'
     },
@@ -882,17 +1106,41 @@ window.processPayment = function (id, action, notes) {
               } else {
                 // In main Payments table, show Receipt & Proof button
                 const receiptBtnHtml = `
-                  <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${p.tenant_name}', '${p.unit_code}', '${p.amount}', '${p.payment_date_short}', '${p.payment_method}', '${p.reference_no}', '${proofPath}', 'verified', ${p.id})">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', 'verified', ${p.id}, '${window.escapeJs(p.admin_notes || '')}')">
                     <i class="bi bi-receipt me-1"></i> Receipt & Proof
                   </button>
                 `;
                 $(this).html(receiptBtnHtml).fadeIn(150);
               }
             } else {
-              $row.find('.status-col').html('<span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>');
+              const displayReason = p.rejection_reason || notes || 'Rejected';
+              $row.find('.status-col').html(`
+                <span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>
+                <small class="d-block text-danger mt-1 text-wrap" style="font-size:0.75rem; max-width:200px;" title="${window.escapeHtml(p.admin_notes || notes || '')}">
+                  <i class="bi bi-info-circle me-1"></i>${window.escapeHtml(displayReason)}
+                </small>
+              `);
               $row.removeClass('table-warning').attr('data-status', 'rejected');
               $row.attr('data-category', function (i, val) { return (val || '').replace('pending', 'rejected'); });
-              $(this).html('<span class="small text-danger fw-semibold"><i class="bi bi-x"></i> Rejected</span>').fadeIn(150);
+
+              if ($row.closest('#adminPendingTable').length) {
+                $(this).html('<span class="small text-danger fw-semibold"><i class="bi bi-x"></i> Rejected</span>').fadeIn(150);
+                setTimeout(function () {
+                  $row.fadeOut(300, function () {
+                    $(this).remove();
+                    if (!$('#adminPendingTable tbody tr').length) {
+                      $('#adminPendingTable tbody').html('<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-check-circle-fill text-success fs-3 d-block mb-1"></i><strong>All caught up!</strong> No pending payments in queue.</td></tr>');
+                    }
+                  });
+                }, 1000);
+              } else {
+                const detailsBtnHtml = `
+                  <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', 'rejected', ${p.id}, '${window.escapeJs(p.admin_notes || notes || '')}')">
+                    <i class="bi bi-receipt me-1"></i> View Details
+                  </button>
+                `;
+                $(this).html(detailsBtnHtml).fadeIn(150);
+              }
             }
           });
         }
@@ -910,18 +1158,20 @@ window.processPayment = function (id, action, notes) {
           }
         }
 
-        // If the user currently has the 'pending' filter tab active on payments.html, hide the newly verified row
-        if ($('.btn-filter.active').attr('data-filter') === 'pending' && isApprove) {
+        // If the user currently has the 'pending' filter tab active on payments.html, hide the newly verified/rejected row
+        if ($('.btn-filter.active').attr('data-filter') === 'pending') {
           setTimeout(function () {
             $row.fadeOut(300);
           }, 600);
         }
 
+        const toastMsg = isApprove 
+          ? `Payment #${p.reference_no} is now Verified & Cleared in MySQL.`
+          : `Payment #${p.reference_no} rejected: "${p.rejection_reason || notes || 'Action logged'}"`;
+
         showToast(
           isApprove ? 'Verified & Cleared' : 'Payment Rejected',
-          isApprove 
-            ? `Payment #${p.reference_no} is now Verified & Cleared in MySQL.`
-            : `Payment #${p.reference_no} marked as rejected.`,
+          toastMsg,
           isApprove ? 'success' : 'warning'
         );
       } else {
@@ -946,7 +1196,7 @@ window.processPayment = function (id, action, notes) {
 };
 
 // Preview Official Receipt & Attached Proof of Payment Modal
-window.previewReceiptModal = function (id, tenant, room, amount, date, method, ref, proofImage, status, dbId) {
+window.previewReceiptModal = function (id, tenant, room, amount, date, method, ref, proofImage, status, dbId, notes) {
   const tenantName = tenant || 'Maria Clara Santos';
   const roomName = room || 'Unit BH-02 (Boarding House)';
   const amountNum = parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 3500;
@@ -992,13 +1242,30 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
     stampHtml = '<div class="receipt-stamp-paid text-danger border-danger" style="color:#dc2626 !important; border-color:#dc2626 !important;">REJECTED</div>';
   }
 
+  let rejectionNoticeHtml = '';
+  if (currentStatus === 'rejected') {
+    const reasonText = notes || 'Payment verification rejected. Please re-upload a clear proof of payment or consult management.';
+    rejectionNoticeHtml = `
+      <div class="alert alert-danger border-danger mb-3 p-3 rounded shadow-sm" style="background-color: #fef2f2;">
+        <div class="d-flex align-items-start gap-2">
+          <i class="bi bi-x-circle-fill fs-5 text-danger mt-1"></i>
+          <div class="flex-grow-1">
+            <h6 class="fw-bold text-danger mb-1">Payment Verification Rejected</h6>
+            <div class="small text-dark mb-1"><strong>Reason for Rejection:</strong> ${window.escapeHtml(reasonText)}</div>
+            <small class="text-muted d-block"><i class="bi bi-info-circle me-1"></i> The tenant has been prompted to re-submit valid proof with matching transaction reference number.</small>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   let actionButtonsHtml = '';
   if (currentStatus === 'pending') {
     actionButtonsHtml = `
       <div class="p-3 bg-white border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div class="small text-muted"><i class="bi bi-shield-lock text-primary me-1"></i> Landlord Review Action:</div>
         <div class="btn-group btn-group-sm">
-          <button type="button" class="btn btn-outline-danger" onclick="processPayment('${paymentDbId}', 'rejected'); $('#receiptPreviewModal').modal('hide');"><i class="bi bi-x-circle me-1"></i> Reject</button>
+          <button type="button" class="btn btn-outline-danger" onclick="$('#receiptPreviewModal').modal('hide'); setTimeout(function(){ openRejectPaymentModal('${paymentDbId}', '${refNum}', '${window.escapeJs(tenantName)}', '₱${amountStr}', '${window.escapeJs(roomName)}'); }, 250);"><i class="bi bi-x-circle me-1"></i> Reject</button>
           <button type="button" class="btn btn-success" onclick="processPayment('${paymentDbId}', 'approved'); $('#receiptPreviewModal').modal('hide');"><i class="bi bi-check2-circle me-1"></i> Approve & Clear</button>
         </div>
       </div>
@@ -1017,6 +1284,7 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
           </div>
           <div class="modal-body p-4 bg-light">
             ${proofPhotoHtml}
+            ${rejectionNoticeHtml}
 
             <div class="receipt-paper">
               <div class="d-flex justify-content-between align-items-start mb-3">
@@ -1090,7 +1358,11 @@ window.loadPaymentsList = function () {
           if (isPending) {
             statusBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span>';
           } else if (isRejected) {
-            statusBadge = '<span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>';
+            const cleanReason = p.rejection_reason || (p.admin_notes || '').replace(/^Rejected by .*? - /i, '').replace(/^Reason:\s*/i, '');
+            statusBadge = `
+              <span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>
+              ${cleanReason ? `<small class="d-block text-danger mt-1 text-wrap" style="font-size:0.75rem; max-width:200px;" title="${window.escapeHtml(p.admin_notes)}"><i class="bi bi-info-circle me-1"></i>${window.escapeHtml(cleanReason)}</small>` : ''}
+            `;
           }
 
           const initials = (p.tenant_name || 'TN').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -1100,14 +1372,14 @@ window.loadPaymentsList = function () {
           if (isPending) {
             actionsHtml = `
               <div class="action-btn-group btn-group btn-group-sm">
-                <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('${p.reference_no}', '${p.tenant_name}', '${p.unit_code}', '${p.amount}', '${p.payment_date_short}', '${p.payment_method}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id})"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id}, '${window.escapeJs(p.admin_notes || '')}')"><i class="bi bi-eye"></i></button>
                 <button class="btn btn-success" title="Approve & Mark Verified" onclick="processPayment(${p.id}, 'approved')"><i class="bi bi-check-lg"></i> Approve</button>
-                <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment(${p.id}, 'rejected')"><i class="bi bi-x-lg"></i></button>
+                <button class="btn btn-outline-danger" title="Reject Payment" onclick="openRejectPaymentModal(${p.id}, '${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${p.amount_formatted}', 'Unit ${window.escapeJs(p.unit_code)}')"><i class="bi bi-x-lg"></i> Reject</button>
               </div>
             `;
           } else {
             actionsHtml = `
-              <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${p.tenant_name}', '${p.unit_code}', '${p.amount}', '${p.payment_date_short}', '${p.payment_method}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id})">
+              <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id}, '${window.escapeJs(p.admin_notes || '')}')">
                 <i class="bi bi-receipt me-1"></i> ${isVerified ? 'Receipt & Proof' : 'View Details'}
               </button>
             `;
@@ -1169,7 +1441,11 @@ window.loadTenantPayments = function (tenantName) {
           if (isPending) {
             statusBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span>';
           } else if (p.status === 'rejected') {
-            statusBadge = '<span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>';
+            const cleanReason = p.rejection_reason || (p.admin_notes || '').replace(/^Rejected by .*? - /i, '').replace(/^Reason:\s*/i, '');
+            statusBadge = `
+              <span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Rejected</span>
+              ${cleanReason ? `<small class="d-block text-danger mt-1 text-wrap" style="font-size:0.75rem; max-width:180px;"><i class="bi bi-info-circle me-1"></i>${window.escapeHtml(cleanReason)}</small>` : ''}
+            `;
           }
 
           const proofPath = p.proof_image ? p.proof_image : '';
@@ -1182,7 +1458,7 @@ window.loadTenantPayments = function (tenantName) {
               <td class="fw-bold text-navy">${p.amount_formatted}</td>
               <td class="status-col">${statusBadge}</td>
               <td class="text-end">
-                <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${p.tenant_name}', '${p.unit_code}', '${p.amount}', '${p.payment_date_short}', '${p.payment_method}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id})">
+                <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id}, '${window.escapeJs(p.admin_notes || '')}')">
                   <i class="bi ${isVerified ? 'bi-receipt' : 'bi-eye'} me-1"></i> ${isVerified ? 'Receipt & Proof' : 'View Proof'}
                 </button>
               </td>
@@ -1235,9 +1511,9 @@ window.loadAdminPendingQueue = function () {
               <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
               <td class="text-end">
                 <div class="action-btn-group btn-group btn-group-sm">
-                  <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('${p.reference_no}', '${p.tenant_name}', '${p.unit_code}', '${p.amount}', '${p.payment_date_short}', '${p.payment_method}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id})"><i class="bi bi-eye"></i></button>
+                  <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${window.escapeJs(p.unit_code)}', '${p.amount}', '${p.payment_date_short}', '${window.escapeJs(p.payment_method)}', '${p.reference_no}', '${proofPath}', '${p.status}', ${p.id}, '${window.escapeJs(p.admin_notes || '')}')"><i class="bi bi-eye"></i></button>
                   <button class="btn btn-success" title="Approve & Clear" onclick="processPayment(${p.id}, 'approved')"><i class="bi bi-check-lg"></i> Approve</button>
-                  <button class="btn btn-outline-danger" title="Reject Payment" onclick="processPayment(${p.id}, 'rejected')"><i class="bi bi-x-lg"></i></button>
+                  <button class="btn btn-outline-danger" title="Reject Payment" onclick="openRejectPaymentModal(${p.id}, '${p.reference_no}', '${window.escapeJs(p.tenant_name)}', '${p.amount_formatted}', 'Unit ${window.escapeJs(p.unit_code)}')"><i class="bi bi-x-lg"></i></button>
                 </div>
               </td>
             </tr>

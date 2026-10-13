@@ -43,3 +43,22 @@
 - **Username:** `tenant`
 - **Password:** `tenant12345`
 - **Destination:** [pages/tenant-dashboard.html](pages/tenant-dashboard.html)
+
+---
+
+## Rent Payment Verification & Rejection Policy
+
+When reviewing tenant payment uploads (GCash, Maya, Bank Transfer) in the **Rent Payment Verification Queue**, administrators cannot reject a receipt without providing an explicit, recorded reason.
+
+### Common Rejection Reasons:
+1. **Unclear or blurry proof of payment:** Screenshot cannot be read clearly (reference number, timestamp, or amount is obscured).
+2. **Reference number mismatch:** The reference number entered by the tenant does not match the reference number in the uploaded screenshot.
+3. **Incorrect payment amount:** The amount sent does not match the tenant's current monthly rent balance (₱3,500 for Boarding House / ₱8,000 for Private House).
+4. **Duplicate submission:** The transaction receipt was already previously claimed or submitted.
+5. **Payment not received in landlord account:** The funds are not reflected in the landlord's registered GCash or bank transaction history.
+6. **Wrong recipient account:** Payment was transferred to an unintended or invalid recipient account.
+7. **Invalid or altered screenshot:** Receipt image appears cropped, edited, or expired.
+
+### Audit & Visibility:
+- Every rejection records an audit entry into `payments.admin_notes` containing the reason, reviewer name, and timestamp.
+- The rejection reason is displayed directly on the tenant's dashboard so they know the exact reason and can re-upload valid proof.

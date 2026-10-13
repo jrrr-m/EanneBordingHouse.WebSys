@@ -1,4 +1,4 @@
-<?php
+    <?php
 // ====================================================================
 // Eanne Boarding House - Admin Approve / Reject Payment API
 // Updates payment status in MySQL to 'verified' or 'rejected'.
@@ -9,7 +9,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -20,6 +20,7 @@ $pdo = getDbConnection();
 try {
     $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
     $action = strtolower(trim($_POST['action'] ?? $_GET['action'] ?? ''));
+    $reason = trim($_POST['reason'] ?? $_GET['reason'] ?? '');
     $notes = trim($_POST['notes'] ?? $_GET['notes'] ?? '');
     $reviewer = trim($_POST['reviewer'] ?? $_GET['reviewer'] ?? 'Landlord Admin');
 
@@ -28,7 +29,7 @@ try {
     }
 
     if (!in_array($action, ['approve', 'verify', 'reject'])) {
-        throw new Exception("Invalid action. Must be 'approve', 'verify', or 'reject'.");
+        throw new Exception("Invalid action. Must be 'approve', 'verify', or 'reject'.");   
     }
 
     // Check if payment exists
@@ -54,10 +55,14 @@ try {
     $isApprove = in_array($action, ['approve', 'verify']);
     $newStatus = $isApprove ? 'verified' : 'rejected';
 
-    if (empty($notes)) {
-        $notes = $isApprove 
-            ? "Approved and credited by {$reviewer} on " . date('M j, Y g:i A')
-            : "Rejected by {$reviewer} on " . date('M j, Y g:i A') . " - please re-upload valid proof.";
+    if ($isApprove) {
+        if (empty($notes)) {
+            $notes = "Approved and credited by {$reviewer} on " . date('M j, Y g:i A');
+        }
+        $rejectionReason = null;
+    } else {
+        $rejectionReason = !empty($reason) ? $reason : (!empty($notes) ? $notes : 'Payment verification rejected - please re-upload valid proof.');
+        $notes = "Reason: {$rejectionReason} (Rejected by {$reviewer} on " . date('M j, Y g:i A') . ")";
     }
 
     $updateStmt = $pdo->prepare("UPDATE `payments` 
@@ -80,7 +85,7 @@ try {
         'success' => true,
         'message' => $isApprove 
             ? "Payment #{$updatedPayment['reference_no']} has been successfully verified & approved!"
-            : "Payment #{$updatedPayment['reference_no']} has been rejected.",
+            : "Payment #{$updatedPayment['reference_no']} has been rejected." . ($rejectionReason ? " Reason: {$rejectionReason}" : ""),
         'new_status' => $newStatus,
         'pending_count' => intval($pendingCount),
         'payment' => [
@@ -97,7 +102,8 @@ try {
             'status' => $updatedPayment['status'],
             'verified_at' => date('M j, Y (g:i A)', strtotime($updatedPayment['verified_at'])),
             'verified_by' => $updatedPayment['verified_by'],
-            'admin_notes' => $updatedPayment['admin_notes']
+            'admin_notes' => $updatedPayment['admin_notes'],
+            'rejection_reason' => $rejectionReason
         ]
     ], JSON_PRETTY_PRINT);
 

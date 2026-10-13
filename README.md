@@ -39,8 +39,8 @@ EanneBordingHouse.WebSys/
 │   ├── api_get_stats.php        # Live compound KPI metrics, revenue targets, and recent activity
 │   ├── api_rooms.php            # File Maintenance CRUD: Add, Edit specifications, Delete room, status toggles
 │   ├── api_tenants.php          # User Maintenance CRUD: Add tenant, Edit details, Move-out archive, Hard delete
-│   ├── api_get_payments.php     # Filtered payment transactions, counts, and revenue aggregates
-│   ├── api_update_payment.php   # Approval endpoint (marks 'Verified & Cleared' in MySQL)
+│   ├── api_get_payments.php     # Filtered payment transactions, revenue aggregates & rejection reason extraction
+│   ├── api_update_payment.php   # Verification endpoint: 'Verified & Cleared' approval or structured rejection with audit notes
 │   ├── api_upload_payment.php   # Receipt upload handler (saves images to uploads/payments/)
 │   ├── api_record_cash.php      # Walk-in OTC cash payment logger
 │   ├── api_tickets.php          # Maintenance ticket submission and status tracking
@@ -67,7 +67,7 @@ EanneBordingHouse.WebSys/
 | **Admin Dashboard** | [`pages/admin-dashboard.html`](pages/admin-dashboard.html) | Admin | Live KPI cards (Active Tenants, Monthly Target, Queue, Vacancy), Category Occupancy overview, and Recent Activity feed. |
 | **Rooms & Houses** | [`pages/rooms.html`](pages/rooms.html) | Admin | **File Maintenance (CRUD):** Add rental units, Edit unit specifications (rate, type, capacity, inclusions), Delete units permanently, and quick vacancy status toggling. |
 | **Tenants Roster** | [`pages/tenants.html`](pages/tenants.html) | Admin | **User Maintenance (CRUD):** Register new tenant accounts, Edit resident profile & rent, Mark move-out (lease archiving), and Permanently Delete accounts. |
-| **Payments Queue** | [`pages/payments.html`](pages/payments.html) | Admin | Pending receipt review, digital receipt preview with uploaded photo proof, instant **Approve ("Verified & Cleared")** / **Reject**, and Walk-in Cash logging. |
+| **Payments Queue** | [`pages/payments.html`](pages/payments.html) | Admin | Pending receipt review, digital receipt preview with uploaded photo proof, instant **Approve ("Verified & Cleared")**, structured **Reject with Reason Prompt** (preset dropdown, quick tags, custom notes & tenant feedback), and Walk-in Cash logging. |
 | **Reports & Ledgers** | [`pages/reports.html`](pages/reports.html) | Admin | Monthly revenue ledger, collection efficiency breakdowns, policy summaries, and dynamic CSV report export. |
 | **Tenant Portal** | [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html) | Tenant | Live billing statement, proof of payment upload form, payment history ledger, and maintenance ticket tracker. |
 | **Public Landing** | [`index.html`](index.html) | Public | Hero showcase, unit rates teaser, inclusions summary, utility notice, and viewing inquiry form. |
@@ -208,3 +208,17 @@ The system uses AJAX polling and unified helper functions in [`assets/js/script.
   - Dynamically updates room type status badges:
     - **Boarding House (4 Units)**: Shows whether units are available or dynamically flags **"Fully Booked (0/4 Available)"** with a waitlist notice.
     - **Private Boarding House (2 Units)**: Shows vacancy counts (e.g. **"1 of 2 Available"**) with move-in ready indicators.
+
+* **Payment Verification & Rejection Audit Workflow:**
+  - **Rejection Modal & Standard Presets:** When rejecting an unverified digital receipt on [`pages/payments.html`](pages/payments.html), [`pages/admin-dashboard.html`](pages/admin-dashboard.html), or within the receipt preview lightbox, the administrator is prompted via a modal with:
+    - Standard presets: Unclear/blurry screenshot, Reference number mismatch, Incorrect payment amount, Duplicate submission, Payment not received in landlord account, Wrong recipient account used, or Altered screenshot.
+    - 1-Click quick tags: *Blurry receipt*, *Ref # mismatch*, *Incorrect amount*, *Not received*.
+    - Free-form explanation `<textarea>` with real-time auto-fill, `novalidate` browser protection, and automatic preset fallback.
+  - **Backend Persistence & Audit Trail:**
+    - [`backend/api_update_payment.php`](backend/api_update_payment.php) processes the rejection, formatting the entry as:
+      `Reason: {reason} (Rejected by {reviewer_name} on {M j, Y g:i A})`.
+    - Stored directly into the `admin_notes` column in the MySQL `payments` table.
+  - **API Exposure & Tenant Portal Feedback:**
+    - [`backend/api_get_payments.php`](backend/api_get_payments.php) automatically extracts and exposes the `rejection_reason` string in JSON payloads for rejected transactions.
+    - [`assets/js/script.js`](assets/js/script.js) displays a prominent rejection badge and formatted reason box on both Admin ledgers and the Tenant Portal ([`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)), ensuring complete transparency so the resident knows why the payment was declined and can submit corrected proof without delay.
+    - The digital receipt lightbox preview modal also highlights a dedicated red rejection banner with the full recorded reason when reviewing previously rejected receipts.
