@@ -215,9 +215,9 @@ $(document).ready(function () {
             showToast('Login Successful', `Welcome back, ${res.user.full_name}!`, 'success');
             setTimeout(function () {
               if (res.user.role === 'admin') {
-                window.location.href = 'admin-dashboard.html';
+                window.location.href = 'admin-dashboard.php';
               } else {
-                window.location.href = 'tenant-dashboard.html';
+                window.location.href = 'tenant-dashboard.php';
               }
             }, 600);
           } else {
@@ -735,7 +735,7 @@ $(document).ready(function () {
   }
 
   // Handle global sign out links cleanly
-  $('a[href*="login.html"]').on('click', function () {
+  $('a[href*="login.php"], a[href*="login.html"]').on('click', function () {
     const text = ($(this).text() || '').toLowerCase();
     if (text.indexOf('sign out') !== -1 || text.indexOf('logout') !== -1 || $(this).attr('title') === 'Sign Out') {
       try {
