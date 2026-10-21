@@ -208,6 +208,10 @@ $(document).ready(function () {
         dataType: 'json',
         success: function (res) {
           if (res.success && res.user) {
+            try {
+              sessionStorage.setItem('ebh_user', JSON.stringify(res.user));
+              localStorage.setItem('ebh_user', JSON.stringify(res.user));
+            } catch (err) {}
             showToast('Login Successful', `Welcome back, ${res.user.full_name}!`, 'success');
             setTimeout(function () {
               if (res.user.role === 'admin') {
@@ -270,11 +274,16 @@ $(document).ready(function () {
       $('#uploadProgressBar').css('width', '35%');
 
       const formData = new FormData($form[0]);
-      // Ensure backup fields
-      if (!formData.get('tenant_name')) formData.append('tenant_name', $('#payTenantName').val() || 'Maria Clara Santos');
-      if (!formData.get('unit_code')) formData.append('unit_code', $('#payUnitCode').val() || 'BH-02');
+      const currentProfile = window.currentTenantProfile || window.getEbhCurrentUser() || {};
+      const activeTenant = currentProfile.full_name || $('#payTenantName').val() || '';
+      const activeUnit = currentProfile.unit_code || $('#payUnitCode').val() || '';
+      const activeAmount = currentProfile.monthly_rent || $('#payAmount').val() || '3500';
+
+      // Ensure dynamic fields
+      if (!formData.get('tenant_name') && activeTenant) formData.append('tenant_name', activeTenant);
+      if (!formData.get('unit_code') && activeUnit) formData.append('unit_code', activeUnit);
       if (!formData.get('payment_method')) formData.append('payment_method', $('#payMethodSelect').val() || 'GCash');
-      if (!formData.get('amount')) formData.append('amount', $('#payAmount').val() || '3500');
+      if (!formData.get('amount')) formData.append('amount', activeAmount);
       if (!formData.get('reference_no')) formData.append('reference_no', $('#payRefNumber').val() || '');
 
       $.ajax({
@@ -314,6 +323,7 @@ $(document).ready(function () {
 
               const $tbody = $('#tenantHistoryTable tbody');
               if ($tbody.length) {
+                $tbody.find('.empty-row, #tenantLoadingRow').remove();
                 $(newRow).hide().prependTo($tbody).fadeIn(400);
               }
 
@@ -341,6 +351,10 @@ $(document).ready(function () {
   if ($maintenanceForm.length) {
     $maintenanceForm.on('submit', function (e) {
       e.preventDefault();
+      const currentProfile = window.currentTenantProfile || window.getEbhCurrentUser() || {};
+      const activeTenant = currentProfile.full_name || $('#payTenantName').val() || '';
+      const activeUnit = currentProfile.unit_code || $('#payUnitCode').val() || '';
+
       const category = $('#ticketCategory').val() || 'General';
       const urgency = $('#ticketUrgency').val() || 'Normal';
       const description = $('#ticketDescription').val() || 'Assistance requested.';
@@ -354,8 +368,8 @@ $(document).ready(function () {
         type: 'POST',
         data: {
           action: 'create',
-          tenant_name: 'Maria Clara Santos',
-          unit_code: 'BH-02',
+          tenant_name: activeTenant,
+          unit_code: activeUnit,
           category: category,
           urgency: urgency,
           description: description
@@ -367,7 +381,7 @@ $(document).ready(function () {
             $maintenanceForm[0].reset();
             showToast('Ticket Submitted', `Maintenance Ticket #${res.ticket.ticket_no} logged into MySQL. Caretaker notified.`, 'success');
             if (typeof window.loadTenantTickets === 'function') {
-              window.loadTenantTickets('Maria Clara Santos');
+              window.loadTenantTickets(activeTenant);
             }
           } else {
             showToast('Submission Failed', res.error || 'Could not log ticket.', 'danger');
@@ -715,6 +729,23 @@ $(document).ready(function () {
   window.syncPendingQueueBadges();
   window.syncTicketsQueueBadges();
 
+  // Populate dynamic select dropdowns across modals (Add Tenant, Edit Tenant, Record Cash, Create Ticket)
+  if (typeof window.populateModalSelects === 'function') {
+    window.populateModalSelects();
+  }
+
+  // Handle global sign out links cleanly
+  $('a[href*="login.html"]').on('click', function () {
+    const text = ($(this).text() || '').toLowerCase();
+    if (text.indexOf('sign out') !== -1 || text.indexOf('logout') !== -1 || $(this).attr('title') === 'Sign Out') {
+      try {
+        sessionStorage.removeItem('ebh_user');
+        localStorage.removeItem('ebh_user');
+      } catch (e) {}
+      $.get(window.getEbhApiUrl('api_auth.php?logout=1'));
+    }
+  });
+
   // Auto-load live dynamic data from MySQL database on page load
   if ($('.kpi-card').length || $('#adminPendingTable').length) {
     window.loadGlobalStats();
@@ -769,6 +800,123 @@ window.getEbhUploadUrl = function (filePath) {
   const isPages = window.location.pathname.indexOf('/pages/') !== -1;
   return (isPages ? '../' : '') + filePath;
 };
+
+window.getEbhCurrentUser = function () {
+  try {
+    const raw = sessionStorage.getItem('ebh_user') || localStorage.getItem('ebh_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+};
+
+// Dynamic Select Dropdown Populator for Modals (Syncs live with MySQL rooms and users)
+window.populateModalSelects = function () {
+  // 1. Populate Room Selects (#newTenantRoom, #editTenantRoom, #contactRoomType)
+  if ($('#newTenantRoom').length || $('#editTenantRoom').length || $('#contactRoomType').length) {
+    $.ajax({
+      url: window.getEbhApiUrl('api_rooms.php'),
+      type: 'GET',
+      dataType: 'json',
+      success: function (res) {
+        if (!res || !res.success || !res.rooms) return;
+
+        let newTenantOpts = '';
+        let editTenantOpts = '';
+        let contactOpts = '<option value="">-- Select Preferred Accommodation --</option>';
+
+        res.rooms.forEach(function (r) {
+          const isAvail = r.status === 'available';
+          const availTag = isAvail ? ' (Available)' : ` (${r.status.toUpperCase()})`;
+          const optLabel = `Unit ${r.unit_code} - ${r.room_type} (₱${Number(r.monthly_rate).toLocaleString()}/mo)${availTag}`;
+
+          newTenantOpts += `<option value="Unit ${r.unit_code}" data-unit="${r.unit_code}" data-rate="${r.monthly_rate}" data-type="${r.room_type}">${optLabel}</option>`;
+          editTenantOpts += `<option value="${r.unit_code}" data-rate="${r.monthly_rate}" data-type="${r.room_type}">Unit ${r.unit_code} (${r.room_type})</option>`;
+          contactOpts += `<option value="Unit ${r.unit_code} (${r.room_type})">Unit ${r.unit_code} - ${r.room_type} (₱${Number(r.monthly_rate).toLocaleString()})</option>`;
+        });
+
+        if ($('#newTenantRoom').length) {
+          const prevVal = $('#newTenantRoom').val();
+          $('#newTenantRoom').html(newTenantOpts);
+          if (prevVal) $('#newTenantRoom').val(prevVal);
+          $('#newTenantRoom').trigger('change');
+        }
+
+        if ($('#editTenantRoom').length) {
+          const prevVal = $('#editTenantRoom').val();
+          $('#editTenantRoom').html(editTenantOpts);
+          if (prevVal) $('#editTenantRoom').val(prevVal);
+        }
+
+        if ($('#contactRoomType').length) {
+          $('#contactRoomType').html(contactOpts);
+        }
+      }
+    });
+  }
+
+  // 2. Populate Tenant Selects (#cashTenantSelect, #adminTicketTenant)
+  if ($('#cashTenantSelect').length || $('#adminTicketTenant').length) {
+    $.ajax({
+      url: window.getEbhApiUrl('api_tenants.php'),
+      type: 'GET',
+      dataType: 'json',
+      success: function (res) {
+        if (!res || !res.success || !res.tenants) return;
+
+        let cashOpts = '<option value="">-- Choose Resident --</option>';
+        let ticketOpts = '<option value="">-- Choose Tenant / Unit --</option>';
+
+        res.tenants.forEach(function (t) {
+          if (t.is_active) {
+            cashOpts += `<option value="${t.full_name}" data-unit="${t.unit_code}" data-rent="${t.monthly_rent}">${t.full_name} - Unit ${t.unit_code} (${t.monthly_rent_formatted})</option>`;
+            ticketOpts += `<option value="${t.full_name}" data-unit="${t.unit_code}">${t.full_name} (Unit ${t.unit_code})</option>`;
+          }
+        });
+        ticketOpts += `<option value="Caretaker Inspection" data-unit="Compound">Caretaker / Facility Management</option>`;
+
+        if ($('#cashTenantSelect').length) {
+          const prevVal = $('#cashTenantSelect').val();
+          $('#cashTenantSelect').html(cashOpts);
+          if (prevVal) $('#cashTenantSelect').val(prevVal);
+        }
+
+        if ($('#adminTicketTenant').length) {
+          const prevVal = $('#adminTicketTenant').val();
+          $('#adminTicketTenant').html(ticketOpts);
+          if (prevVal) $('#adminTicketTenant').val(prevVal);
+        }
+      }
+    });
+  }
+};
+
+// Auto-fill connected inputs on dropdown change
+$(document).on('change', '#newTenantRoom', function () {
+  const $opt = $(this).find('option:selected');
+  const rate = $opt.attr('data-rate');
+  const type = $opt.attr('data-type');
+  if (rate && $('#newTenantRent').length) $('#newTenantRent').val(rate);
+  if (type && $('#newTenantType').length) $('#newTenantType').val(type);
+});
+
+$(document).on('change', '#editTenantRoom', function () {
+  const $opt = $(this).find('option:selected');
+  const rate = $opt.attr('data-rate');
+  if (rate && $('#editTenantRent').length) $('#editTenantRent').val(rate);
+});
+
+$(document).on('change', '#cashTenantSelect', function () {
+  const $opt = $(this).find('option:selected');
+  const rent = $opt.attr('data-rent');
+  if (rent && $('#cashAmountInput').length) $('#cashAmountInput').val(rent);
+});
+
+$(document).on('change', '#adminTicketTenant', function () {
+  const $opt = $(this).find('option:selected');
+  const unit = $opt.attr('data-unit');
+  if (unit && $('#adminTicketUnit').length) $('#adminTicketUnit').val(unit);
+});
 
 // Global Real-time Pending Queue Badges Synchronizer
 window.syncPendingQueueBadges = function (count) {
@@ -1197,13 +1345,13 @@ window.processPayment = function (id, action, notes) {
 
 // Preview Official Receipt & Attached Proof of Payment Modal
 window.previewReceiptModal = function (id, tenant, room, amount, date, method, ref, proofImage, status, dbId, notes) {
-  const tenantName = tenant || 'Maria Clara Santos';
-  const roomName = room || 'Unit BH-02 (Boarding House)';
-  const amountNum = parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 3500;
+  const tenantName = tenant || 'Resident';
+  const roomName = room || 'Assigned Unit';
+  const amountNum = parseFloat(String(amount).replace(/[^0-9.]/g, '')) || 0;
   const amountStr = amountNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const dateStr = date || 'Oct 2, 2026';
-  const methodStr = method || 'GCash Transfer';
-  const refNum = ref || id || 'GC-992813';
+  const dateStr = date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const methodStr = method || 'Electronic Transfer';
+  const refNum = ref || id || 'REF-N/A';
   const currentStatus = (status || 'verified').toLowerCase();
   const paymentDbId = dbId || id;
 
@@ -1415,7 +1563,12 @@ window.loadPaymentsList = function () {
           $('#totalPaymentsCount').text(res.counts.total);
           $('#verifiedCountBadge').text(res.counts.verified);
         }
+      } else {
+        $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-inbox fs-2 text-muted d-block mb-1"></i>No payment transactions found in database.</td></tr>');
       }
+    },
+    error: function () {
+      $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted">Could not load payments from database.</td></tr>');
     }
   });
 };
@@ -1466,7 +1619,12 @@ window.loadTenantPayments = function (tenantName) {
           `;
         });
         $tbody.html(html);
+      } else {
+        $tbody.html('<tr class="empty-row"><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-receipt fs-3 text-muted d-block mb-1"></i>No payments recorded yet for this resident account.</td></tr>');
       }
+    },
+    error: function () {
+      $tbody.html('<tr><td colspan="6" class="text-center py-3 text-muted">Could not load payment history.</td></tr>');
     }
   });
 };
@@ -1566,7 +1724,13 @@ window.loadReportsLedger = function () {
         if ($('#reportsCountBadge').length) {
           $('#reportsCountBadge').text(res.count);
         }
+      } else {
+        $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-journal-x fs-2 text-muted d-block mb-1"></i>No ledger records found in database.</td></tr>');
+        if ($('#reportsCountBadge').length) $('#reportsCountBadge').text('0');
       }
+    },
+    error: function () {
+      $tbody.html('<tr><td colspan="7" class="text-center py-4 text-muted">Could not load report ledger from database.</td></tr>');
     }
   });
 };
@@ -1880,20 +2044,25 @@ window.loadGlobalStats = function () {
       }
 
       // Recent Activity Feed
-      if ($('#recentActivityFeed').length && res.recent_activity && res.recent_activity.length) {
-        let actHtml = '';
-        res.recent_activity.forEach(function (act) {
-          actHtml += `
-            <div class="d-flex gap-2">
-              <div class="avatar-circle sm bg-light border ${act.icon_color}"><i class="bi ${act.icon}"></i></div>
-              <div>
-                <strong class="text-navy">${act.title}:</strong> ${act.description}
-                <div class="text-muted" style="font-size:0.75rem;">${act.timestamp}</div>
+      const activitiesList = res.recent_activity || res.activities || [];
+      if ($('#recentActivityFeed').length) {
+        if (activitiesList.length) {
+          let actHtml = '';
+          activitiesList.forEach(function (act) {
+            actHtml += `
+              <div class="d-flex gap-2">
+                <div class="avatar-circle sm bg-light border ${act.icon_color || 'text-primary'}"><i class="bi ${act.icon || 'bi-activity'}"></i></div>
+                <div>
+                  <strong class="text-navy">${act.title}:</strong> ${act.description}
+                  <div class="text-muted" style="font-size:0.75rem;">${act.timestamp}</div>
+                </div>
               </div>
-            </div>
-          `;
-        });
-        $('#recentActivityFeed').html(actHtml);
+            `;
+          });
+          $('#recentActivityFeed').html(actHtml);
+        } else {
+          $('#recentActivityFeed').html('<div class="text-center py-3 text-muted small"><i class="bi bi-clock-history me-1"></i>No recent activity logged yet.</div>');
+        }
       }
 
       // Rooms Page Stat Cards & Filter Counts
@@ -2037,7 +2206,18 @@ window.loadRoomsGrid = function () {
         }
       });
 
-      $container.html(html);
+      $container.html(html || '<div class="col-12 text-center py-5 text-muted"><i class="bi bi-door-open fs-2 d-block mb-2"></i>No rooms found in database inventory.</div>');
+
+      // Update filter counts and stats dynamically
+      if (res.counts) {
+        if ($('#filterBtnAllRooms').length) $('#filterBtnAllRooms').text(`All Units (${res.counts.total})`);
+        if ($('#filterBtnBhRooms').length) $('#filterBtnBhRooms').text(`Boarding House (${res.counts.boarding_house})`);
+        if ($('#filterBtnPbRooms').length) $('#filterBtnPbRooms').text(`Private House (${res.counts.private_house})`);
+        if ($('#filterBtnAvailRooms').length) $('#filterBtnAvailRooms').html(`<i class="bi bi-sparkles text-success"></i> Available Only (${res.counts.available})`);
+        if ($('#roomStatTotal').length) $('#roomStatTotal').text(res.counts.total);
+        if ($('#roomStatOccupied').length) $('#roomStatOccupied').text(res.counts.occupied);
+        if ($('#roomStatAvailable').length) $('#roomStatAvailable').text(res.counts.available);
+      }
 
       // Also update badges on admin dashboard if present
       if ($('#overviewBhBadges').length && bhBadgesHtml) $('#overviewBhBadges').html(bhBadgesHtml);
@@ -2122,27 +2302,53 @@ window.loadTenantsList = function () {
         `;
       });
 
-      $tbody.html(html);
+      $tbody.html(html || '<tr><td colspan="7" class="text-center py-4 text-muted">No resident records found in database.</td></tr>');
 
-      if ($('#tenantCountBadge').length) {
-        $('#tenantCountBadge').text(res.counts ? res.counts.active : res.count);
+      if (res.counts) {
+        if ($('#tenantCountBadge').length) $('#tenantCountBadge').text(res.counts.active);
+        if ($('#filterBtnAllTenants').length) $('#filterBtnAllTenants').text(`All Tenants (${res.counts.total})`);
+        if ($('#filterBtnActiveTenants').length) $('#filterBtnActiveTenants').text(`Active (${res.counts.active})`);
+        if ($('#filterBtnBhTenants').length) $('#filterBtnBhTenants').text(`Boarding House (${res.counts.boarding_house})`);
+        if ($('#filterBtnPbTenants').length) $('#filterBtnPbTenants').text(`Private House (${res.counts.private_house})`);
       }
     }
   });
 };
 
 // 5. Fetch & Populate Tenant Dashboard Profile and Statement from MySQL
-window.loadTenantDashboard = function (tenantName) {
-  const currentTenant = tenantName || 'Maria Clara Santos';
+window.loadTenantDashboard = function (tenantName, username) {
+  const sessionUser = typeof window.getEbhCurrentUser === 'function' ? window.getEbhCurrentUser() : null;
+  const searchName = tenantName || (sessionUser ? sessionUser.full_name : '');
+  const searchUser = username || (sessionUser ? sessionUser.username : '');
+
+  let param = '';
+  if (searchName) param = '?name=' + encodeURIComponent(searchName);
+  else if (searchUser) param = '?username=' + encodeURIComponent(searchUser);
 
   $.ajax({
-    url: window.getEbhApiUrl('api_tenant_profile.php?name=' + encodeURIComponent(currentTenant)),
+    url: window.getEbhApiUrl('api_tenant_profile.php' + param),
     type: 'GET',
     dataType: 'json',
     success: function (res) {
       if (!res || !res.success || !res.profile) return;
       const p = res.profile;
+      window.currentTenantProfile = p;
 
+      // Update Document Title
+      document.title = `Tenant Portal | ${p.full_name} | Eanne Boarding House`;
+
+      // Topbar Navbar User Info
+      if ($('#tenantNavAvatar').length) $('#tenantNavAvatar').text(p.initials || 'TN');
+      if ($('#tenantNavName').length) $('#tenantNavName').text(p.full_name);
+      if ($('#tenantNavUnit').length) $('#tenantNavUnit').text(`Unit ${p.unit_code} (${p.room_type})`);
+
+      // Welcome Banner
+      if ($('#tenantWelcomeTitle').length) $('#tenantWelcomeTitle').text(`Welcome back, ${p.first_name || p.full_name}!`);
+      if ($('#tenantWelcomeSub').length) {
+        $('#tenantWelcomeSub').html(`Unit ${p.unit_code} (${p.room_type} - ${p.inclusions}) &bull; Soldiers Village, Pasig City. Bills excluded (shouldered by tenant).`);
+      }
+
+      // Statement Info
       if ($('#tenantStatementMonth').length) $('#tenantStatementMonth').text(p.statement_month);
       if ($('#tenantStatementRent').length) $('#tenantStatementRent').text(p.monthly_rent_formatted);
       if ($('#tenantStatementDueDate').length) {
@@ -2153,16 +2359,21 @@ window.loadTenantDashboard = function (tenantName) {
           .attr('class', 'badge-ebh ' + p.badge_class)
           .html(`<i class="bi bi-check-circle"></i> ${p.payment_status_text}`);
       }
+
+      // Hidden Form Fields for Upload Payment Modal
+      if ($('#payTenantName').length) $('#payTenantName').val(p.full_name);
+      if ($('#payUnitCode').length) $('#payUnitCode').val(p.unit_code);
+      if ($('#payAmount').length) $('#payAmount').val(p.monthly_rent);
+
+      // Also load tenant payment history ledger & maintenance tickets from MySQL
+      if (typeof window.loadTenantPayments === 'function') {
+        window.loadTenantPayments(p.full_name);
+      }
+      if (typeof window.loadTenantTickets === 'function') {
+        window.loadTenantTickets(p.full_name);
+      }
     }
   });
-
-  // Also load tenant payment history ledger & maintenance tickets from MySQL
-  if (typeof window.loadTenantPayments === 'function') {
-    window.loadTenantPayments(currentTenant);
-  }
-  if (typeof window.loadTenantTickets === 'function') {
-    window.loadTenantTickets(currentTenant);
-  }
 };
 
 // 6. Fetch & Populate Tenant Maintenance Tickets from MySQL

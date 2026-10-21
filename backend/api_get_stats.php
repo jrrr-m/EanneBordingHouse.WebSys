@@ -97,15 +97,24 @@ try {
     $ticketStats = $stmtTickets->fetch();
     $openTickets = (int)($ticketStats['open_tickets'] ?? 0);
 
-    // 5. Recent Activity Feed (Combine latest payments and tickets)
+    // 5. Recent Activity Feed (Combine latest payments and maintenance tickets)
     $stmtRecentPayments = $pdo->query("
         SELECT 
             id, reference_no, tenant_name, unit_code, amount, payment_method, status, payment_date, created_at, verified_at
         FROM payments 
         ORDER BY payment_date DESC, id DESC 
-        LIMIT 6
+        LIMIT 4
     ");
     $recentPayments = $stmtRecentPayments->fetchAll();
+
+    $stmtRecentTickets = $pdo->query("
+        SELECT
+            id, ticket_no, tenant_name, unit_code, category, urgency, description, status, created_at
+        FROM maintenance_tickets
+        ORDER BY created_at DESC, id DESC
+        LIMIT 3
+    ");
+    $recentTickets = $stmtRecentTickets->fetchAll();
 
     $activities = [];
     foreach ($recentPayments as $rp) {
@@ -117,6 +126,7 @@ try {
         if ($rp['status'] === 'verified') {
             $activities[] = [
                 'type' => 'payment_verified',
+                'raw_ts' => $vTs ?: time(),
                 'title' => "Payment Verified ({$rp['reference_no']})",
                 'description' => "{$rp['tenant_name']} (Unit {$rp['unit_code']}) payment of {$amountFmt} via {$rp['payment_method']} was verified & cleared.",
                 'badge' => 'Verified & Cleared',
@@ -126,18 +136,40 @@ try {
                 'timestamp' => $vTs ? date('M j, Y g:i A', $vTs) : 'Recently'
             ];
         } elseif ($rp['status'] === 'pending') {
+            $pTs = !empty($rp['payment_date']) ? strtotime($rp['payment_date']) : strtotime($rp['created_at']);
             $activities[] = [
                 'type' => 'payment_pending',
+                'raw_ts' => $pTs ?: time(),
                 'title' => "Payment Uploaded ({$rp['reference_no']})",
                 'description' => "{$rp['tenant_name']} (Unit {$rp['unit_code']}) submitted proof of payment for {$amountFmt} ({$rp['payment_method']}).",
                 'badge' => 'Pending Verification',
                 'badge_class' => 'badge-pending',
                 'icon' => 'bi-clock-history',
                 'icon_color' => 'text-warning',
-                'timestamp' => !empty($rp['payment_date']) ? date('M j, Y g:i A', strtotime($rp['payment_date'])) : date('M j, Y g:i A', strtotime($rp['created_at']))
+                'timestamp' => $pTs ? date('M j, Y g:i A', $pTs) : 'Recently'
             ];
         }
     }
+
+    foreach ($recentTickets as $rt) {
+        $tTs = strtotime($rt['created_at']);
+        $activities[] = [
+            'type' => 'ticket_' . $rt['status'],
+            'raw_ts' => $tTs ?: time(),
+            'title' => "Ticket #{$rt['ticket_no']} ({$rt['category']})",
+            'description' => "{$rt['tenant_name']} (Unit {$rt['unit_code']}): " . (strlen($rt['description']) > 75 ? substr($rt['description'], 0, 72) . '...' : $rt['description']),
+            'badge' => ucfirst($rt['status']),
+            'badge_class' => $rt['status'] === 'resolved' ? 'badge-verified' : 'badge-pending',
+            'icon' => 'bi-tools',
+            'icon_color' => 'text-info',
+            'timestamp' => $tTs ? date('M j, Y g:i A', $tTs) : 'Recently'
+        ];
+    }
+
+    // Sort combined activities newest first
+    usort($activities, function($a, $b) {
+        return ($b['raw_ts'] ?? 0) <=> ($a['raw_ts'] ?? 0);
+    });
 
     echo json_encode([
         'success' => true,
@@ -180,6 +212,7 @@ try {
                 'percent' => $privateTotal > 0 ? round(($privateOccupied / $privateTotal) * 100) : 0
             ]
         ],
+        'activities' => $activities,
         'recent_activity' => $activities
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 

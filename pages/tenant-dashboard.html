@@ -31,10 +31,10 @@
 
         <div class="d-flex align-items-center gap-3">
           <div class="d-flex align-items-center gap-2">
-            <div class="avatar-circle sm">MC</div>
+            <div class="avatar-circle sm" id="tenantNavAvatar">--</div>
             <div class="d-none d-sm-block text-start lh-1">
-              <span class="fw-bold small d-block text-navy">Maria Clara Santos</span>
-              <small class="text-muted">Unit BH-02 (Boarding House Rental)</small>
+              <span class="fw-bold small d-block text-navy" id="tenantNavName">Loading...</span>
+              <small class="text-muted" id="tenantNavUnit">Unit Loading...</small>
             </div>
           </div>
           <a href="login.html" class="btn btn-outline-danger btn-sm" title="Sign Out">
@@ -54,9 +54,9 @@
           <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary bg-opacity-10 text-primary small fw-bold mb-2">
             <i class="bi bi-patch-check-fill"></i> Verified Resident
           </div>
-          <h3 class="fw-bold text-navy mb-1">Welcome back, Maria Clara!</h3>
-          <p class="text-muted mb-0 small">
-            Unit BH-02 (Boarding House Rental - Individual Room & Kitchen Area, Shared CR) &bull; Soldiers Village, Pasig City. Bills excluded (shouldered by tenant).
+          <h3 class="fw-bold text-navy mb-1" id="tenantWelcomeTitle">Welcome back!</h3>
+          <p class="text-muted mb-0 small" id="tenantWelcomeSub">
+            Loading unit details and rental information...
           </p>
         </div>
         <div class="col-md-4 text-md-end">
@@ -125,44 +125,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr class="table-warning">
-                  <td class="fw-bold text-navy">REF-992813</td>
-                  <td>Oct 2, 2026</td>
-                  <td><span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Verification</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 1)"><i class="bi bi-eye"></i> View</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="fw-bold text-navy">GC-817290</td>
-                  <td>Sep 3, 2026</td>
-                  <td><span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Verified & Paid</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('GC-817290', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Sep 3, 2026', 'GCash Transfer', 'GC-817290')"><i class="bi bi-receipt me-1"></i> Receipt</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="fw-bold text-navy">GC-701928</td>
-                  <td>Aug 4, 2026</td>
-                  <td><span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Verified & Paid</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('GC-701928', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Aug 4, 2026', 'GCash Transfer', 'GC-701928')"><i class="bi bi-receipt me-1"></i> Receipt</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="fw-bold text-navy">BPI-601928</td>
-                  <td>Jul 5, 2026</td>
-                  <td><span class="badge badge-light border"><i class="bi bi-bank text-primary me-1"></i> BPI Online</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Verified & Paid</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="previewReceiptModal('BPI-601928', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Jul 5, 2026', 'BPI Online', 'BPI-601928')"><i class="bi bi-receipt me-1"></i> Receipt</button>
+                <tr id="tenantHistoryLoadingRow">
+                  <td colspan="6" class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Loading payment records from database...
                   </td>
                 </tr>
               </tbody>
@@ -212,16 +178,9 @@
 
             <!-- Active Tickets List -->
             <div id="tenantTicketList">
-              <div class="ticket-item">
-                <div class="d-flex align-items-center justify-content-between mb-1">
-                  <span class="fw-bold small text-navy">Plumbing Issue (#TKT-4192)</span>
-                  <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Resolved</span>
-                </div>
-                <p class="small text-muted mb-2">Replaced shower head washer in 1st floor shared bathroom.</p>
-                <div class="d-flex align-items-center justify-content-between text-muted" style="font-size:0.75rem;">
-                  <span><i class="bi bi-calendar3 me-1"></i> Completed Sep 20, 2026</span>
-                  <span><i class="bi bi-person me-1"></i> Attended by Kuya Boy</span>
-                </div>
+              <div class="text-center py-3 text-muted small" id="tenantTicketsLoading">
+                <div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div>
+                Loading maintenance requests...
               </div>
             </div>
           </div>

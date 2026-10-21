@@ -18,6 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/db.php';
 $pdo = getDbConnection();
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
@@ -90,8 +94,24 @@ if ($method === 'GET') {
     $action = $_POST['action'] ?? 'create';
 
     if ($action === 'create') {
-        $tenantName = trim($_POST['tenant_name'] ?? 'Maria Clara Santos');
-        $unitCode = trim($_POST['unit_code'] ?? 'BH-02');
+        $sessionUser = $_SESSION['user'] ?? null;
+        $tenantName = trim($_POST['tenant_name'] ?? ($sessionUser['full_name'] ?? ''));
+        $unitCode = trim($_POST['unit_code'] ?? ($sessionUser['unit_code'] ?? ''));
+
+        // If not passed, check DB for user's assigned unit or active tenant
+        if (empty($tenantName)) {
+            $firstTenant = $pdo->query("SELECT full_name, unit_code FROM users WHERE role = 'tenant' AND lease_status = 'active' LIMIT 1")->fetch();
+            if ($firstTenant) {
+                $tenantName = $firstTenant['full_name'];
+                if (empty($unitCode)) $unitCode = $firstTenant['unit_code'];
+            }
+        }
+        if (empty($unitCode) && !empty($tenantName)) {
+            $uStmt = $pdo->prepare("SELECT unit_code FROM users WHERE full_name = ? LIMIT 1");
+            $uStmt->execute([$tenantName]);
+            $unitCode = $uStmt->fetchColumn() ?: 'General';
+        }
+
         $category = trim($_POST['category'] ?? 'General');
         $urgency = trim($_POST['urgency'] ?? 'Normal');
         $description = trim($_POST['description'] ?? '');

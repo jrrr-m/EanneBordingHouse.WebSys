@@ -156,82 +156,10 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <!-- Row 1 -->
-                    <tr id="payment-row-101">
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <div class="avatar-circle sm">MC</div>
-                          <div>
-                            <span class="fw-bold text-navy d-block">Maria Clara Santos</span>
-                            <small class="text-muted">Unit BH-02 (Boarding House)</small>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="fw-bold text-navy">₱3,500.00</td>
-                      <td>
-                        <span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> GCash</span>
-                        <small class="d-block text-muted">REF-992813</small>
-                      </td>
-                      <td><small class="text-muted">Today, 2:15 PM</small></td>
-                      <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
-                      <td class="text-end">
-                        <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('REF-992813', 'Maria Clara Santos', 'Unit BH-02 (Boarding House)', '3500', 'Oct 2, 2026', 'GCash Transfer', 'REF-992813', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 1)"><i class="bi bi-eye"></i></button>
-                          <button class="btn btn-success" title="Approve Payment" onclick="processPayment('101', 'approved')"><i class="bi bi-check-lg"></i></button>
-                          <button class="btn btn-outline-danger" title="Reject Payment" onclick="openRejectPaymentModal('101', 'REF-992813', 'Maria Clara Santos', '₱3,500.00', 'Unit BH-02 (Boarding House)')"><i class="bi bi-x-lg"></i></button>
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- Row 2 -->
-                    <tr id="payment-row-102">
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <div class="avatar-circle sm">JD</div>
-                          <div>
-                            <span class="fw-bold text-navy d-block">Juan Dela Cruz</span>
-                            <small class="text-muted">Unit BH-03 (Boarding House)</small>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="fw-bold text-navy">₱3,500.00</td>
-                      <td>
-                        <span class="badge badge-light border"><i class="bi bi-bank text-primary me-1"></i> BPI Online</span>
-                        <small class="d-block text-muted">BPI-441029</small>
-                      </td>
-                      <td><small class="text-muted">Yesterday</small></td>
-                      <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
-                      <td class="text-end">
-                        <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('BPI-441029', 'Juan Dela Cruz', 'Unit BH-03 (Boarding House)', '3500', 'Oct 1, 2026', 'BPI Online', 'BPI-441029', 'uploads/payments/sample_bpi_receipt.svg', 'pending', 2)"><i class="bi bi-eye"></i></button>
-                          <button class="btn btn-success" title="Approve Payment" onclick="processPayment('102', 'approved')"><i class="bi bi-check-lg"></i></button>
-                          <button class="btn btn-outline-danger" title="Reject Payment" onclick="openRejectPaymentModal('102', 'BPI-441029', 'Juan Dela Cruz', '₱3,500.00', 'Unit BH-03 (Boarding House)')"><i class="bi bi-x-lg"></i></button>
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- Row 3 -->
-                    <tr id="payment-row-103">
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <div class="avatar-circle sm">ER</div>
-                          <div>
-                            <span class="fw-bold text-navy d-block">Eduardo & Grace Reyes</span>
-                            <small class="text-muted">Unit PB-01 (Private House)</small>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="fw-bold text-navy">₱8,000.00</td>
-                      <td>
-                        <span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> Maya QR</span>
-                        <small class="d-block text-muted">MYA-812049</small>
-                      </td>
-                      <td><small class="text-muted">Oct 1, 2026</small></td>
-                      <td class="status-col"><span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span></td>
-                      <td class="text-end">
-                        <div class="action-btn-group btn-group btn-group-sm">
-                          <button class="btn btn-outline-secondary" title="View Proof & Receipt" onclick="previewReceiptModal('MYA-812049', 'Eduardo & Grace Reyes', 'Unit PB-01 (Private House)', '8000', 'Oct 1, 2026', 'Maya QR Transfer', 'MYA-812049', 'uploads/payments/sample_gcash_receipt.svg', 'pending', 3)"><i class="bi bi-eye"></i></button>
-                          <button class="btn btn-success" title="Approve Payment" onclick="processPayment('103', 'approved')"><i class="bi bi-check-lg"></i></button>
-                          <button class="btn btn-outline-danger" title="Reject Payment" onclick="openRejectPaymentModal('103', 'MYA-812049', 'Eduardo & Grace Reyes', '₱8,000.00', 'Unit PB-01 (Private House)')"><i class="bi bi-x-lg"></i></button>
-                        </div>
+                    <tr id="adminPendingLoadingRow">
+                      <td colspan="6" class="text-center py-4 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Loading live pending payments from database...
                       </td>
                     </tr>
                   </tbody>
@@ -317,33 +245,9 @@
               </div>
               <div class="ebh-card-body p-3">
                 <div class="d-flex flex-column gap-3 small" id="recentActivityFeed">
-                  <div class="d-flex gap-2">
-                    <div class="avatar-circle sm bg-success text-white"><i class="bi bi-cash"></i></div>
-                    <div>
-                      <strong class="text-navy">Maria Clara Santos</strong> submitted proof of payment for October rent (₱3,500).
-                      <div class="text-muted" style="font-size:0.75rem;">12 minutes ago</div>
-                    </div>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <div class="avatar-circle sm bg-primary text-white"><i class="bi bi-person"></i></div>
-                    <div>
-                      <strong class="text-navy">Juan Dela Cruz</strong> renewed lease for Unit BH-03 (₱3,500).
-                      <div class="text-muted" style="font-size:0.75rem;">3 hours ago</div>
-                    </div>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <div class="avatar-circle sm bg-info text-white"><i class="bi bi-house"></i></div>
-                    <div>
-                      <strong class="text-navy">Eduardo Reyes</strong> submitted monthly rent for Unit PB-01 (₱8,000).
-                      <div class="text-muted" style="font-size:0.75rem;">Yesterday, 1:20 PM</div>
-                    </div>
-                  </div>
-                  <div class="d-flex gap-2">
-                    <div class="avatar-circle sm bg-warning text-dark"><i class="bi bi-tools"></i></div>
-                    <div>
-                      <strong>Caretaker Kuya Boy</strong> checked kitchen sink in Boarding House units.
-                      <div class="text-muted" style="font-size:0.75rem;">Yesterday, 4:30 PM</div>
-                    </div>
+                  <div class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Loading recent activity from database...
                   </div>
                 </div>
               </div>
@@ -381,9 +285,8 @@
               </div>
               <div class="col-md-6">
                 <label for="newTenantRoom" class="form-label small fw-bold text-navy">Unit Assignment</label>
-                <select class="form-control" id="newTenantRoom" required onchange="document.getElementById('newTenantRent').value = this.value.includes('PB') ? 8000 : 3500; document.getElementById('newTenantType').value = this.value.includes('PB') ? 'Private Boarding House' : 'Boarding House Rental';">
-                  <option value="Unit BH-04">Unit BH-04 (Boarding House Rental - ₱3,500)</option>
-                  <option value="Unit PB-02">Unit PB-02 (Private Boarding House - ₱8,000)</option>
+                <select class="form-control" id="newTenantRoom" required>
+                  <option value="">Loading rooms from database...</option>
                 </select>
               </div>
               <div class="col-md-6">

@@ -1,0 +1,496 @@
+<?php
+require_once __DIR__ . '/backend/db.php';
+$pdo = getDbConnection();
+
+$totalUnits = 6;
+$availUnits = 0;
+$bhAvail = 0;
+$pbAvail = 0;
+
+if ($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT room_type, status, COUNT(*) as cnt FROM rooms GROUP BY room_type, status");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['status'] === 'available') {
+                $availUnits += (int)$row['cnt'];
+                if (stripos($row['room_type'], 'private') !== false) {
+                    $pbAvail += (int)$row['cnt'];
+                } else {
+                    $bhAvail += (int)$row['cnt'];
+                }
+            }
+        }
+    } catch (PDOException $e) {
+        // Fallback gracefully
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eanne Boarding House Rental | Rooms & Houses in Pasig City</title>
+  <meta name="description" content="6 boarding house units for rent in Soldiers Village, Pasig City: 4 Boarding House rentals (₱3,500/mo) and 2 Private Boarding Houses (₱8,000/mo). Electricity & water bills shouldered by tenants.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-ebh" id="mainNavbar">
+      <div class="container-fluid px-3 px-xl-5">
+        <a class="ebh-brand" href="index.php">
+          <div class="ebh-logo-mark" title="Eanne Boarding House Rental">
+            <img src="assets/img/795286329_1754004695838265_6753877283478212113_n.png" alt="Eanne Boarding House Rental Logo">
+          </div>
+          <div class="ebh-brand-text">
+            <span class="ebh-brand-title">Eanne Boarding House</span>
+            <span class="ebh-brand-subtitle d-none d-sm-block">Boarding House & Private Rentals</span>
+          </div>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <ul class="navbar-nav mx-auto mb-2 mb-lg-0 align-items-lg-center">
+            <li class="nav-item"><a class="nav-link active" href="index.php">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="pages/accommodations.php">Rooms & Rates</a></li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">The Property</a>
+              <ul class="dropdown-menu shadow">
+                <li><a class="dropdown-item" href="pages/about.php"><i class="bi bi-building"></i> About Us</a></li>
+                <li><a class="dropdown-item" href="pages/gallery.php"><i class="bi bi-images"></i> Photo Gallery</a></li>
+                <li><a class="dropdown-item" href="pages/house-rules.php"><i class="bi bi-shield-check"></i> House Rules</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#contact"><i class="bi bi-geo-alt-fill"></i> Location</a></li>
+              </ul>
+            </li>
+            <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+          </ul>
+
+          <div class="d-flex align-items-center gap-2">
+            <a href="#contact" class="btn btn-ebh-accent btn-sm px-3 fw-bold">Book a Viewing</a>
+            <a href="pages/login.php" class="btn btn-outline-primary btn-sm px-3"><i class="bi bi-person-circle me-1"></i> Sign In</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-ebh" id="heroSection">
+      <div class="container text-center">
+        <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mb-3">
+          <div class="hero-pill-badge mb-0">
+            <i class="bi bi-geo-alt-fill text-info"></i> Soldiers Village, Brgy. Sta. Lucia, Pasig City
+          </div>
+          <div class="hero-pill-badge mb-0" id="heroAvailBadge">
+            <i class="bi bi-door-open-fill text-warning"></i> <span id="heroAvailRoomsText"><?= (int)$availUnits ?> Unit<?= $availUnits == 1 ? "" : "s" ?> Available Left</span>
+          </div>
+        </div>
+        <h1 class="display-4 fw-bold mb-3 text-white">6 Boarding House Units for Rent</h1>
+        <p class="lead mb-4 mx-auto" style="max-width: 700px;">
+          Clean, peaceful, and secure accommodations in Soldiers Village, Pasig City. 
+          Choose from <strong>4 Boarding House rooms (₱3,500/mo)</strong> or <strong>2 Standalone Private Houses (₱8,000/mo)</strong>.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+          <a href="pages/accommodations.php" class="btn btn-ebh-accent btn-lg px-4"><i class="bi bi-door-open-fill me-1"></i> Rooms & Rates</a>
+          <a href="#contact" class="btn btn-ebh-outline-light btn-lg px-4"><i class="bi bi-calendar-event me-1"></i> Schedule a Tour</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Value Pillars -->
+    <section class="py-5 bg-white">
+      <div class="container">
+        <div class="text-center mb-5" style="max-width: 650px; margin: 0 auto;">
+          <span class="badge-ebh badge-pending mb-2">Why Choose EBH</span>
+          <h2 class="fw-bold text-navy">Peaceful Living with Honest Rates</h2>
+          <p class="text-muted small">Quality accommodations, clear rental terms, and a secure Pasig neighborhood.</p>
+        </div>
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="ebh-card h-100 p-4 text-center">
+              <div class="kpi-icon blue mx-auto mb-3"><i class="bi bi-door-open-fill fs-3"></i></div>
+              <h5 class="fw-bold text-navy mb-2">Move-in Ready Units</h5>
+              <p class="text-muted small mb-3">4 individual boarding rooms with kitchen areas and 2 complete private family houses.</p>
+              <a href="pages/accommodations.php" class="small fw-semibold">View Options <i class="bi bi-arrow-right"></i></a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="ebh-card h-100 p-4 text-center">
+              <div class="kpi-icon navy mx-auto mb-3"><i class="bi bi-volume-mute-fill fs-3 text-info"></i></div>
+              <h5 class="fw-bold text-navy mb-2">Peaceful & Respectful</h5>
+              <p class="text-muted small mb-3">Quiet hours after 10:00 PM (no karaoke) and max 3 pax per room ensure undisturbed rest.</p>
+              <a href="pages/house-rules.php" class="small fw-semibold">House Rules <i class="bi bi-arrow-right"></i></a>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="ebh-card h-100 p-4 text-center">
+              <div class="kpi-icon accent mx-auto mb-3"><i class="bi bi-receipt fs-3"></i></div>
+              <h5 class="fw-bold text-navy mb-2">Transparent Utilities</h5>
+              <p class="text-muted small mb-3">Utility bills (electricity & water) are excluded and shouldered by tenants by actual use.</p>
+              <a href="#contact" class="small fw-semibold">Rental Terms <i class="bi bi-arrow-right"></i></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rooms Teaser -->
+    <section class="py-5 bg-light">
+      <div class="container">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+          <div>
+            <span class="badge-ebh badge-pending mb-1">Accommodations</span>
+            <h2 class="fw-bold text-navy mb-0">Units & Monthly Rates</h2>
+          </div>
+          <a href="pages/accommodations.php" class="btn btn-outline-primary btn-sm">Full Details & Specs <i class="bi bi-arrow-right"></i></a>
+        </div>
+        <div class="row g-4">
+          <!-- Room 1: Boarding House Rental -->
+          <div class="col-md-6 col-lg-4">
+            <div class="ebh-card h-100 d-flex flex-column overflow-hidden">
+              <div class="room-preview-box">
+                <img src="assets/img/solo_room.jpg" alt="Boarding House Rental">
+                <span class="gallery-badge-category">4 Units Total</span>
+              </div>
+              <div class="p-4 d-flex flex-column flex-grow-1 justify-content-between bg-white">
+                <div>
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold text-navy mb-0">Boarding House Rental</h5>
+                    <?php if ($bhAvail > 0): ?>
+                    <span id="indexBhAvailBadge" class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i> <?= $bhAvail ?> of 4 Available</span>
+<?php else: ?>
+                    <span id="indexBhAvailBadge" class="badge bg-danger text-white"><i class="bi bi-slash-circle me-1"></i> Fully Booked (0/4 Avail)</span>
+<?php endif; ?>
+                  </div>
+                  <div class="h3 fw-bold text-navy mb-2">₱3,500 <span class="fs-6 fw-normal text-muted">/ mo (1 room)</span></div>
+                  <?php if ($bhAvail > 0): ?>
+                  <div id="indexBhNotice" class="small py-1 px-2 rounded mb-2 bg-light text-success border">
+                    <i class="bi bi-check-circle text-success me-1"></i> <?= $bhAvail ?> room<?= $bhAvail > 1 ? "s" : "" ?> vacant for immediate move-in!
+                  </div>
+<?php else: ?>
+                  <div id="indexBhNotice" class="small py-1 px-2 rounded mb-2 bg-light text-muted border">
+                    <i class="bi bi-clock-history text-warning me-1"></i> All 4 rooms occupied. Waitlist open.
+                  </div>
+<?php endif; ?>
+                  <p class="text-muted small mb-3">Individual private room and dedicated kitchen area with shared comfort room and common area.</p>
+                  <ul class="list-unstyled small text-muted d-flex flex-column gap-1 mb-3">
+                    <li><i class="bi bi-check2 text-success me-1"></i> Individual room & kitchen area</li>
+                    <li><i class="bi bi-check2 text-success me-1"></i> Shared comfort room (CR)</li>
+                    <li><i class="bi bi-people text-primary me-1"></i> Max 3 pax per room limit</li>
+                    <li><i class="bi bi-lightning text-warning me-1"></i> Bills excluded (shouldered by tenant)</li>
+                  </ul>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="openRoomDetailsModal('Boarding House Rental', '₱3,500', 'Boarding House (4 Units Total)', ['Individual private room', 'Dedicated kitchen area', 'Shared comfort room (CR)', 'Shared common area', 'Maximum 3 pax per room limit', 'Bills excluded: Electricity & water shouldered by tenants', 'Strict quiet hours after 10 PM (No karaoke)', 'No pets allowed and CLAYGO policy', 'No drilling or renovations without permission'], 'assets/img/solo_room.jpg', 'Affordable individual room rental with dedicated kitchen area and shared comfort room. Strictly up to 3 persons per room. Electricity and water bills are shouldered by tenants.')">View Details</button>
+                  <a href="#contact" class="btn btn-sm btn-ebh-primary w-100">Inquire</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Room 2: Private Boarding House -->
+          <div class="col-md-6 col-lg-4">
+            <div class="ebh-card h-100 d-flex flex-column overflow-hidden">
+              <div class="room-preview-box">
+                <img src="assets/img/exterior_compound.jpg" alt="Private Boarding House">
+                <span class="gallery-badge-category">2 Units Total</span>
+              </div>
+              <div class="p-4 d-flex flex-column flex-grow-1 justify-content-between bg-white">
+                <div>
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="fw-bold text-navy mb-0">Private Boarding House</h5>
+                    <?php if ($pbAvail > 0): ?>
+                    <span id="indexPbAvailBadge" class="badge bg-success text-white"><i class="bi bi-check-circle me-1"></i> <?= $pbAvail ?> of 2 Available</span>
+<?php else: ?>
+                    <span id="indexPbAvailBadge" class="badge bg-danger text-white"><i class="bi bi-slash-circle me-1"></i> Fully Booked (0/2 Avail)</span>
+<?php endif; ?>
+                  </div>
+                  <div class="h3 fw-bold text-navy mb-2">₱8,000 <span class="fs-6 fw-normal text-muted">/ mo (entire house)</span></div>
+                  <?php if ($pbAvail > 0): ?>
+                  <div id="indexPbNotice" class="small py-1 px-2 rounded mb-2 bg-light text-success border">
+                    <i class="bi bi-check-circle text-success me-1"></i> <?= $pbAvail ?> Private House<?= $pbAvail > 1 ? "s" : "" ?> vacant for immediate move-in!
+                  </div>
+<?php else: ?>
+                  <div id="indexPbNotice" class="small py-1 px-2 rounded mb-2 bg-light text-muted border">
+                    <i class="bi bi-clock-history text-warning me-1"></i> Both private houses occupied. Waitlist open.
+                  </div>
+<?php endif; ?>
+                  <p class="text-muted small mb-3">Individual private standalone space with no shared common areas. Ideal for families and privacy.</p>
+                  <ul class="list-unstyled small text-muted d-flex flex-column gap-1 mb-3">
+                    <li><i class="bi bi-check2 text-success me-1"></i> Own complete private house</li>
+                    <li><i class="bi bi-check2 text-success me-1"></i> No shared common areas</li>
+                    <li><i class="bi bi-heart-fill text-danger me-1"></i> Pang-pamilya / family friendly</li>
+                    <li><i class="bi bi-shield-check text-info me-1"></i> No strict house rules</li>
+                  </ul>
+                </div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="openRoomDetailsModal('Private Boarding House', '₱8,000', 'Private Boarding House (2 Units Total)', ['Own complete private space (entire house)', 'No shared common areas with other tenants', 'Private kitchen and private comfort room', 'Ideal for families or tenants seeking full privacy', 'No strict boarding house rules (peaceful family living)', 'Bills excluded: Electricity & water shouldered by tenants', 'Gated compound security in Soldiers Village'], 'assets/img/exterior_compound.jpg', 'Complete private boarding house with own standalone space and no shared common areas. Designed for families and residents who value privacy. Electricity and water bills are shouldered by tenants.')">View Details</button>
+                  <a href="#contact" class="btn btn-sm btn-ebh-accent w-100">Inquire</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Rental Summary & Inclusions -->
+          <div class="col-md-12 col-lg-4">
+            <div class="ebh-card h-100 p-4 bg-white d-flex flex-column justify-content-between border-info">
+              <div>
+                <span class="badge badge-info text-dark mb-2 font-weight-bold">Summary</span>
+                <h5 class="fw-bold text-navy mb-2">Rental & Utility Policy</h5>
+                <p class="text-muted small mb-3">Transparent breakdown of property amenities and house expectations:</p>
+                
+                <div class="small text-muted d-flex flex-column gap-2 mb-4">
+                  <div class="d-flex gap-2">
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                    <div>
+                      <strong class="text-navy d-block">Bills are Excluded</strong>
+                      <span>Electricity and water are shouldered by tenants.</span>
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <i class="bi bi-house-door-fill text-primary fs-5"></i>
+                    <div>
+                      <strong class="text-navy d-block">6 Total Units for Rent</strong>
+                      <span>4 Boarding House rooms + 2 Private Houses.</span>
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <i class="bi bi-shield-check text-success fs-5"></i>
+                    <div>
+                      <strong class="text-navy d-block">House Rules (Boarding House)</strong>
+                      <span>3 pax cap, no karaoke past 10pm, no pets, CLAYGO, no unauthorized drilling.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <a href="pages/accommodations.php" class="btn btn-outline-primary btn-sm w-100 mb-2">Compare Both Options</a>
+                <a href="pages/house-rules.php" class="btn btn-light btn-sm w-100 text-muted">Read House Rules</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery Teaser -->
+    <section class="py-5 bg-white">
+      <div class="container">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+          <div>
+            <span class="badge-ebh badge-pending mb-1">Photo Tour</span>
+            <h2 class="fw-bold text-navy mb-0">Property Preview</h2>
+          </div>
+          <a href="pages/gallery.php" class="btn btn-outline-primary btn-sm">Full Gallery <i class="bi bi-arrow-right"></i></a>
+        </div>
+        <div class="row g-4">
+          <!-- Photo 1 -->
+          <div class="col-md-4">
+            <div class="gallery-card" onclick="openPhotoLightbox('assets/img/exterior_compound.jpg', 'Gated Compound Facade', 'Exterior', 'Two-story residential boarding facility with secure perimeter and clean surroundings in Soldiers Village, Pasig City.')">
+              <div class="gallery-card-preview">
+                <img src="assets/img/exterior_compound.jpg" alt="Compound Exterior">
+                <span class="gallery-badge-category">Exterior</span>
+                <span class="gallery-badge-dimen">HD Photo</span>
+                <div class="gallery-overlay">
+                  <span class="gallery-overlay-btn"><i class="bi bi-zoom-in"></i> View Photo</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div>
+                  <h6 class="fw-bold text-navy mb-1">Residential Compound</h6>
+                  <p class="text-muted small mb-0">Peaceful boarding facility in Soldiers Village, Pasig.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Photo 2 -->
+          <div class="col-md-4">
+            <div class="gallery-card" onclick="openPhotoLightbox('assets/img/solo_room.jpg', 'Boarding House Bedroom', 'Room', 'Move-in ready room with kitchen area access in our boarding house rental unit.')">
+              <div class="gallery-card-preview">
+                <img src="assets/img/solo_room.jpg" alt="Boarding House Room">
+                <span class="gallery-badge-category">Boarding House</span>
+                <span class="gallery-badge-dimen">HD Photo</span>
+                <div class="gallery-overlay">
+                  <span class="gallery-overlay-btn"><i class="bi bi-zoom-in"></i> View Photo</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div>
+                  <h6 class="fw-bold text-navy mb-1">Boarding House Room</h6>
+                  <p class="text-muted small mb-0">Individual room with dedicated kitchen area (₱3,500/mo).</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Photo 3 -->
+          <div class="col-md-4">
+            <div class="gallery-card" onclick="openPhotoLightbox('assets/img/shared_kitchen.jpg', 'Kitchen Area', 'Kitchen', 'Clean kitchen area for preparing homecooked meals.')">
+              <div class="gallery-card-preview">
+                <img src="assets/img/shared_kitchen.jpg" alt="Kitchen Area">
+                <span class="gallery-badge-category">Kitchen</span>
+                <span class="gallery-badge-dimen">HD Photo</span>
+                <div class="gallery-overlay">
+                  <span class="gallery-overlay-btn"><i class="bi bi-zoom-in"></i> View Photo</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div>
+                  <h6 class="fw-bold text-navy mb-1">Kitchen & Dining Area</h6>
+                  <p class="text-muted small mb-0">Cooking station and sink for boarding residents.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact & Location Section -->
+    <section class="py-5 bg-light" id="contact">
+      <div class="container">
+        <div class="text-center mb-5" style="max-width: 650px; margin: 0 auto;">
+          <span class="badge-ebh badge-pending mb-2">Visit & Inquiries</span>
+          <h2 class="fw-bold text-navy mb-2">Location & Schedule a Viewing</h2>
+          <p class="text-muted small">Book a free tour or get in touch with our caretaker in Soldiers Village, Pasig City.</p>
+        </div>
+
+        <div class="row g-5">
+          <!-- Left: Location Details -->
+          <div class="col-lg-6">
+            <span class="badge-ebh badge-pending mb-2">Neighborhood</span>
+            <h3 class="fw-bold text-navy mb-3">Soldiers Village, Pasig City</h3>
+            <p class="text-muted mb-4">Quiet, secure subdivision in Brgy. Sta. Lucia, Pasig City with easy transit connections to Ortigas Center, Eastwood, and Pasig Palengke.</p>
+
+            <div class="ebh-card p-3 mb-4">
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <i class="bi bi-geo-alt-fill fs-4 text-primary"></i>
+                <div>
+                  <strong class="text-navy d-block">Physical Address</strong>
+                  <small class="text-muted">#275 105 St. Soldiers Village, Brgy. Sta. Lucia, Pasig City</small>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <i class="bi bi-telephone-fill fs-4 text-primary"></i>
+                <div>
+                  <strong class="text-navy d-block">Contact Numbers</strong>
+                  <small class="text-muted">+63 (02) 8555-0199 / 0917-555-EBH1</small>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-clock-fill fs-4 text-primary"></i>
+                <div>
+                  <strong class="text-navy d-block">Viewing Hours</strong>
+                  <small class="text-muted">Monday - Saturday: 9:00 AM – 6:00 PM</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="placeholder-box py-4 text-center">
+              <i class="bi bi-map display-4 text-primary mb-2"></i>
+              <strong class="text-navy d-block">Interactive Map & Directions</strong>
+              <small class="text-muted">Soldiers Village Guardhouse Entrance &bull; Sta. Lucia, Pasig</small>
+            </div>
+          </div>
+
+          <!-- Right: Viewing Form -->
+          <div class="col-lg-6">
+            <div class="ebh-card p-4 shadow-sm">
+              <h4 class="fw-bold text-navy mb-2"><i class="bi bi-calendar2-check text-primary me-2"></i>Schedule a Viewing</h4>
+              <p class="text-muted small mb-4">Leave your details and preferred date. We will confirm your visit via SMS.</p>
+              
+              <!-- Success Alert -->
+              <div class="alert alert-success border-success" id="contactSuccessAlert" style="display:none;">
+                <h6 class="fw-bold text-success mb-1"><i class="bi bi-check-circle-fill me-1"></i> Viewing Request Confirmed!</h6>
+                <p class="small mb-0">Thank you! Your viewing schedule request has been logged. Our caretaker will send an SMS confirmation to your mobile number.</p>
+              </div>
+
+              <form id="contactViewingForm">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold text-navy">Your Full Name *</label>
+                  <input type="text" class="form-control" required placeholder="e.g. Juan Santos">
+                </div>
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold text-navy">Mobile Number *</label>
+                    <input type="tel" class="form-control" required placeholder="09XX-XXX-XXXX">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold text-navy">Preferred Accommodation</label>
+                    <select class="form-select">
+                      <option value="Boarding House Rental (₱3,500)">Boarding House Rental (₱3,500/mo)</option>
+                      <option value="Private Boarding House (₱8,000)">Private Boarding House (₱8,000/mo)</option>
+                      <option value="General Inquiry / Both">General Inquiry / Either</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold text-navy">Preferred Viewing Date *</label>
+                  <input type="date" class="form-control" required value="2026-10-15">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold text-navy">Questions or Notes</label>
+                  <textarea class="form-control" rows="3" placeholder="Target move-in date or questions..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-ebh-primary w-100 py-2 fw-semibold">
+                  <i class="bi bi-send-fill me-1"></i> Send Viewing Request
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer-ebh">
+    <div class="container">
+      <div class="row g-4 mb-4">
+        <div class="col-lg-5">
+          <a class="ebh-brand dark mb-2 d-inline-flex" href="index.php">
+            <div class="ebh-logo-mark"><img src="assets/img/795286329_1754004695838265_6753877283478212113_n.png" alt="EBH Logo"></div>
+            <div class="ebh-brand-text"><span class="ebh-brand-title text-white">Eanne Boarding House</span><span class="ebh-brand-subtitle">Pasig City</span></div>
+          </a>
+          <p class="small text-white-50">Comfortable, clean, and secure rooms & private boarding houses in Soldiers Village, Pasig.</p>
+        </div>
+        <div class="col-6 col-lg-3">
+          <h5>Quick Links</h5>
+          <ul class="list-unstyled small d-flex flex-column gap-1">
+            <li><a href="pages/about.php">About Us</a></li>
+            <li><a href="pages/accommodations.php">Rooms & Rates</a></li>
+            <li><a href="pages/gallery.php">Photo Gallery</a></li>
+            <li><a href="pages/house-rules.php">House Rules</a></li>
+            <li><a href="#contact">Location & Contact</a></li>
+          </ul>
+        </div>
+        <div class="col-6 col-lg-4">
+          <h5>Location</h5>
+          <address class="small text-white-50">
+            <p class="mb-1"><i class="bi bi-geo-alt text-info me-2"></i>#275 105 St. Soldiers Village, Pasig City</p>
+            <p class="mb-1"><i class="bi bi-telephone text-info me-2"></i>0917-555-EBH1</p>
+            <p class="mb-0"><i class="bi bi-clock text-info me-2"></i>Mon - Sat: 9:00 AM - 6:00 PM</p>
+          </address>
+        </div>
+      </div>
+      <div class="border-top border-white border-opacity-10 pt-3 text-center small text-white-50">
+        <p class="mb-0">&copy; 2026 Eanne Boarding House Rental &bull; Soldiers Village, Pasig City</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap 4.1.3 Dependencies: Full jQuery 3.7.1, Popper.js, Bootstrap 4.1.3 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.3/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
+  <script src="assets/js/script.js"></script>
+</body>
+</html>

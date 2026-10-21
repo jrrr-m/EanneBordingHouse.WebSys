@@ -106,107 +106,10 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- Tenant 1: Maria Clara -->
-                <tr class="filterable-item" data-category="active boarding" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">MC</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Maria Clara Santos</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-882-9901</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Unit BH-02</span> <small class="text-muted d-block">Room 2 &bull; Shared CR</small></td>
-                  <td><span class="badge badge-light border">Boarding House</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><small class="text-muted">Jan 15, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Maria Clara Santos', 'Unit BH-02', 'Boarding House Rental', '₱3,500.00', '0917-882-9901', 'Jan 15, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(2, 'Maria Clara Santos', '0917-882-9901', 'maria.clara@gmail.com', 'BH-02', 3500, '2026-01-15', 'active')"><i class="bi bi-pencil-square"></i></button>
-                      <button class="btn btn-outline-secondary" title="Archive / Move Out" onclick="removeTenantRow(this, 2, 'Maria Clara Santos')"><i class="bi bi-box-arrow-right"></i></button>
-                      <button class="btn btn-outline-danger" title="Permanently Delete Tenant" onclick="window.deleteTenantRow(this, 2, 'Maria Clara Santos')"><i class="bi bi-trash3"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 2: Carlos Dominguez -->
-                <tr class="filterable-item" data-category="active boarding" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">CD</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Carlos Dominguez</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-234-5678</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Unit BH-01</span> <small class="text-muted d-block">Room 1 &bull; Shared CR</small></td>
-                  <td><span class="badge badge-light border">Boarding House</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><small class="text-muted">Jan 10, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Carlos Dominguez', 'Unit BH-01', 'Boarding House Rental', '₱3,500.00', '0917-234-5678', 'Jan 10, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(3, 'Carlos Dominguez', '0917-234-5678', 'carlos.d@gmail.com', 'BH-01', 3500, '2026-01-10', 'active')"><i class="bi bi-pencil-square"></i></button>
-                      <button class="btn btn-outline-secondary" title="Archive / Move Out" onclick="removeTenantRow(this, 3, 'Carlos Dominguez')"><i class="bi bi-box-arrow-right"></i></button>
-                      <button class="btn btn-outline-danger" title="Permanently Delete Tenant" onclick="window.deleteTenantRow(this, 3, 'Carlos Dominguez')"><i class="bi bi-trash3"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 3: Juan Dela Cruz -->
-                <tr class="filterable-item" data-category="active boarding" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">JD</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Juan Dela Cruz</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0918-223-1122</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Unit BH-03</span> <small class="text-muted d-block">Room 3 &bull; Shared CR</small></td>
-                  <td><span class="badge badge-light border">Boarding House</span></td>
-                  <td class="fw-bold text-navy">₱3,500.00</td>
-                  <td><small class="text-muted">Mar 1, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Juan Dela Cruz', 'Unit BH-03', 'Boarding House Rental', '₱3,500.00', '0918-223-1122', 'Mar 1, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(4, 'Juan Dela Cruz', '0918-223-1122', 'juan.delacruz@yahoo.com', 'BH-03', 3500, '2026-03-01', 'active')"><i class="bi bi-pencil-square"></i></button>
-                      <button class="btn btn-outline-secondary" title="Archive / Move Out" onclick="removeTenantRow(this, 4, 'Juan Dela Cruz')"><i class="bi bi-box-arrow-right"></i></button>
-                      <button class="btn btn-outline-danger" title="Permanently Delete Tenant" onclick="window.deleteTenantRow(this, 4, 'Juan Dela Cruz')"><i class="bi bi-trash3"></i></button>
-                    </div>
-                  </td>
-                </tr>
-
-                <!-- Tenant 4: Eduardo & Grace Reyes -->
-                <tr class="filterable-item" data-category="active private" data-status="active">
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar-circle sm">ER</div>
-                      <div>
-                        <span class="fw-bold text-navy d-block">Eduardo & Grace Reyes</span>
-                        <small class="text-muted"><i class="bi bi-telephone me-1"></i>0917-889-4455</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="fw-semibold text-navy">Unit PB-01</span> <small class="text-muted d-block">Private House 1 &bull; Standalone</small></td>
-                  <td><span class="badge badge-light border">Private Boarding House</span></td>
-                  <td class="fw-bold text-navy">₱8,000.00</td>
-                  <td><small class="text-muted">Feb 1, 2026</small></td>
-                  <td><span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span></td>
-                  <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('Eduardo & Grace Reyes', 'Unit PB-01', 'Private Boarding House', '₱8,000.00', '0917-889-4455', 'Feb 1, 2026')"><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(6, 'Eduardo & Grace Reyes', '0917-889-4455', 'reyes.family@gmail.com', 'PB-01', 8000, '2026-02-01', 'active')"><i class="bi bi-pencil-square"></i></button>
-                      <button class="btn btn-outline-secondary" title="Archive / Move Out" onclick="removeTenantRow(this, 6, 'Eduardo & Grace Reyes')"><i class="bi bi-box-arrow-right"></i></button>
-                      <button class="btn btn-outline-danger" title="Permanently Delete Tenant" onclick="window.deleteTenantRow(this, 6, 'Eduardo & Grace Reyes')"><i class="bi bi-trash3"></i></button>
-                    </div>
+                <tr id="tenantsLoadingRow">
+                  <td colspan="7" class="text-center py-4 text-muted">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Loading resident roster from database...
                   </td>
                 </tr>
               </tbody>
@@ -248,14 +151,7 @@
               </div>
               <div class="col-md-6">
                 <label for="newTenantRoom" class="form-label small fw-bold text-navy">Unit Assignment</label>
-                <select class="form-control" id="newTenantRoom" required onchange="document.getElementById('newTenantRent').value = this.value.includes('PB') ? 8000 : 3500; document.getElementById('newTenantType').value = this.value.includes('PB') ? 'Private Boarding House' : 'Boarding House Rental';">
-                  <option value="Unit BH-01">Unit BH-01 (Boarding House Rental - ₱3,500)</option>
-                  <option value="Unit BH-02">Unit BH-02 (Boarding House Rental - ₱3,500)</option>
-                  <option value="Unit BH-03">Unit BH-03 (Boarding House Rental - ₱3,500)</option>
-                  <option value="Unit BH-04">Unit BH-04 (Boarding House Rental - ₱3,500)</option>
-                  <option value="Unit PB-01">Unit PB-01 (Private Boarding House - ₱8,000)</option>
-                  <option value="Unit PB-02">Unit PB-02 (Private Boarding House - ₱8,000)</option>
-                </select>
+                <select class="form-control" id="newTenantRoom" required><option value="" disabled selected>Loading available units...</option></select>
               </div>
               <div class="col-md-6">
                 <label for="newTenantType" class="form-label small fw-bold text-navy">Unit Classification</label>
@@ -312,14 +208,7 @@
               </div>
               <div class="col-md-6">
                 <label for="editTenantRoom" class="form-label small fw-bold text-navy">Assigned Unit</label>
-                <select class="form-control" id="editTenantRoom" required>
-                  <option value="BH-01">Unit BH-01</option>
-                  <option value="BH-02">Unit BH-02</option>
-                  <option value="BH-03">Unit BH-03</option>
-                  <option value="BH-04">Unit BH-04</option>
-                  <option value="PB-01">Unit PB-01</option>
-                  <option value="PB-02">Unit PB-02</option>
-                </select>
+                <select class="form-control" id="editTenantRoom" required><option value="" disabled selected>Loading available units...</option></select>
               </div>
               <div class="col-md-6">
                 <label for="editTenantRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>

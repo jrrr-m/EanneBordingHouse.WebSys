@@ -85,8 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
 
         $redirect = ($user['role'] === 'admin') 
-            ? 'admin-dashboard.html' 
-            : 'tenant-dashboard.html';
+            ? 'admin-dashboard.php' 
+            : 'tenant-dashboard.php';
 
         echo json_encode([
             'success' => true,

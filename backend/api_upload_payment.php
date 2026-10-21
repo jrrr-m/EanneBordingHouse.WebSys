@@ -21,18 +21,42 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/db.php';
 $pdo = getDbConnection();
 
 try {
-    // 1. Extract and sanitize text fields
-    $tenantName = trim($_POST['tenant_name'] ?? $_POST['payTenantName'] ?? 'Maria Clara Santos');
-    $unitCode = trim($_POST['unit_code'] ?? $_POST['payUnitCode'] ?? 'BH-02');
+    $sessionUser = $_SESSION['user'] ?? null;
+    $tenantName = trim($_POST['tenant_name'] ?? $_POST['payTenantName'] ?? ($sessionUser['full_name'] ?? ''));
+    $unitCode = trim($_POST['unit_code'] ?? $_POST['payUnitCode'] ?? ($sessionUser['unit_code'] ?? ''));
+
+    // If still missing, attempt dynamic resolution from MySQL
+    if (empty($tenantName)) {
+        $firstTenant = $pdo->query("SELECT full_name, unit_code, monthly_rent FROM users WHERE role = 'tenant' AND lease_status = 'active' LIMIT 1")->fetch();
+        if ($firstTenant) {
+            $tenantName = $firstTenant['full_name'];
+            if (empty($unitCode)) $unitCode = $firstTenant['unit_code'];
+        }
+    }
+    if (empty($unitCode) && !empty($tenantName)) {
+        $uStmt = $pdo->prepare("SELECT unit_code FROM users WHERE full_name = ? LIMIT 1");
+        $uStmt->execute([$tenantName]);
+        $unitCode = $uStmt->fetchColumn() ?: 'General';
+    }
+
     $paymentMethod = trim($_POST['payment_method'] ?? $_POST['payMethodSelect'] ?? 'GCash');
-    $amountRaw = $_POST['amount'] ?? $_POST['payAmount'] ?? '3500';
+    $amountRaw = $_POST['amount'] ?? $_POST['payAmount'] ?? '0';
     $amount = floatval(str_replace([',', ' '], '', $amountRaw));
     
-    if ($amount <= 0) {
+    if ($amount <= 0 && !empty($tenantName)) {
+        $rStmt = $pdo->prepare("SELECT monthly_rent FROM users WHERE full_name = ? LIMIT 1");
+        $rStmt->execute([$tenantName]);
+        $resolvedRent = (float)$rStmt->fetchColumn();
+        $amount = $resolvedRent > 0 ? $resolvedRent : 3500.00;
+    } elseif ($amount <= 0) {
         $amount = 3500.00;
     }
 

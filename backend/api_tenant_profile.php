@@ -15,38 +15,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/db.php';
 $pdo = getDbConnection();
 
 try {
-    $tenantName = trim($_GET['name'] ?? $_GET['tenant'] ?? 'Maria Clara Santos');
-    $username = trim($_GET['username'] ?? '');
+    $sessionUser = $_SESSION['user'] ?? null;
+    $tenantName = trim($_GET['name'] ?? $_GET['tenant'] ?? ($sessionUser['full_name'] ?? ''));
+    $username = trim($_GET['username'] ?? ($sessionUser['username'] ?? ''));
 
-    $sql = "
-        SELECT 
-            u.id,
-            u.username,
-            u.full_name,
-            u.phone,
-            u.email,
-            u.unit_code,
-            u.monthly_rent,
-            u.move_in_date,
-            u.lease_status,
-            r.room_type,
-            r.inclusions,
-            r.max_pax
-        FROM users u
-        LEFT JOIN rooms r ON u.unit_code = r.unit_code
-        WHERE (u.full_name = ? OR u.username = ?) AND u.role = 'tenant'
-        LIMIT 1
-    ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$tenantName, $username]);
-    $user = $stmt->fetch();
+    $user = null;
+
+    if (!empty($tenantName) || !empty($username)) {
+        $sql = "
+            SELECT 
+                u.id,
+                u.username,
+                u.full_name,
+                u.phone,
+                u.email,
+                u.unit_code,
+                u.monthly_rent,
+                u.move_in_date,
+                u.lease_status,
+                r.room_type,
+                r.inclusions,
+                r.max_pax
+            FROM users u
+            LEFT JOIN rooms r ON u.unit_code = r.unit_code
+            WHERE (u.full_name = ? OR u.username = ?) AND u.role = 'tenant'
+            LIMIT 1
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$tenantName, $username]);
+        $user = $stmt->fetch();
+    }
 
     if (!$user) {
-        // Fallback to first active tenant
+        // Fallback to first active tenant dynamically from database
         $stmt2 = $pdo->query("
             SELECT 
                 u.id, u.username, u.full_name, u.phone, u.email, u.unit_code, u.monthly_rent, u.move_in_date, u.lease_status,
@@ -54,6 +63,7 @@ try {
             FROM users u
             LEFT JOIN rooms r ON u.unit_code = r.unit_code
             WHERE u.role = 'tenant' AND u.lease_status = 'active'
+            ORDER BY u.id ASC
             LIMIT 1
         ");
         $user = $stmt2->fetch();
@@ -61,7 +71,7 @@ try {
 
     if (!$user) {
         http_response_code(404);
-        echo json_encode(['success' => false, 'error' => 'Tenant profile not found.']);
+        echo json_encode(['success' => false, 'error' => 'No active tenant profile found in database.']);
         exit;
     }
 
@@ -93,12 +103,18 @@ try {
         }
     }
 
+    $parts = explode(' ', trim($user['full_name']));
+    $firstName = $parts[0];
+    $initials = strtoupper(substr($parts[0], 0, 1) . (count($parts) > 1 ? substr($parts[count($parts) - 1], 0, 1) : ''));
+
     echo json_encode([
         'success' => true,
         'profile' => [
             'id' => (int)$user['id'],
             'username' => $user['username'],
             'full_name' => $user['full_name'],
+            'first_name' => $firstName,
+            'initials' => $initials,
             'phone' => $user['phone'],
             'email' => $user['email'],
             'unit_code' => $user['unit_code'],
