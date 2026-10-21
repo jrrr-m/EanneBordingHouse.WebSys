@@ -89,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   
   <!-- Custom Design System -->
   <link rel="stylesheet" href="../assets/css/style.css">
+  <!-- Business Logo Favicon -->
+  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="../assets/img/favicon.png">
 </head>
 <body class="bg-light d-flex flex-column min-vh-100" style="min-height: 100vh;">
 

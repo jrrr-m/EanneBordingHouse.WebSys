@@ -151,6 +151,9 @@ $adminUser = $_SESSION['user'];
   
   <!-- Custom Design System -->
   <link rel="stylesheet" href="../assets/css/style.css">
+  <!-- Business Logo Favicon -->
+  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="../assets/img/favicon.png">
 </head>
 <body>
 
@@ -288,73 +291,120 @@ $adminUser = $_SESSION['user'];
               $isPrivate = strpos($r['room_type'], 'Private') !== false;
               $catClass = $isPrivate ? 'private-house' : 'boarding-house';
             ?>
-            <div class="col-md-6 col-lg-4 filterable-item" data-category="<?= $catClass ?> <?= $r['status'] ?>" data-status="<?= $r['status'] ?>">
-              <div class="room-card h-100 <?= $isAvailable ? 'border-2' : '' ?>" style="<?= $isAvailable ? 'border-style:dashed!important;' : '' ?>">
-                <div class="room-card-header <?= $isAvailable ? 'bg-light' : '' ?>">
-                  <div class="d-flex align-items-center">
+            <div class="col-md-6 col-lg-4 mb-4 filterable-item" data-category="<?= $catClass ?> <?= $r['status'] ?>" data-status="<?= $r['status'] ?>">
+              <div class="room-card h-100 <?= $isOccupied ? 'is-occupied' : 'is-available' ?>">
+                <div class="room-card-header">
+                  <div class="d-flex align-items-center gap-2">
                     <span class="room-status-dot <?= $r['status'] ?>"></span>
-                    <strong class="text-navy">Unit <?= htmlspecialchars($r['unit_code']) ?></strong>
-                    <span class="badge badge-light border ms-2 small"><?= $isPrivate ? 'Private House' : 'Boarding House' ?></span>
+                    <span class="room-unit-badge">Unit <?= htmlspecialchars($r['unit_code']) ?></span>
+                    <?= $isPrivate 
+                      ? '<span class="badge bg-purple-subtle"><i class="bi bi-house-door-fill me-1"></i> Private</span>' 
+                      : '<span class="badge bg-blue-subtle"><i class="bi bi-building me-1"></i> Boarding</span>' ?>
                   </div>
                   <?php if ($isOccupied): ?>
-                    <span class="badge-ebh badge-paid"><i class="bi bi-lock-fill"></i> Occupied</span>
+                    <span class="badge bg-danger-subtle"><i class="bi bi-lock-fill me-1"></i> Occupied</span>
                   <?php else: ?>
-                    <span class="badge-ebh badge-verified"><i class="bi bi-door-open-fill"></i> Available</span>
+                    <span class="badge bg-success-subtle"><i class="bi bi-sparkles me-1"></i> Available</span>
                   <?php endif; ?>
                 </div>
+
                 <div class="ebh-card-body d-flex flex-column flex-grow-1">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted small"><?= htmlspecialchars($r['room_type']) ?></span>
-                    <span class="fw-bold text-navy fs-5">₱<?= number_format($r['monthly_rate']) ?><small class="text-muted fw-normal">/mo</small></span>
+                  <!-- Pricing & Capacity Highlight -->
+                  <div class="d-flex justify-content-between align-items-center py-2 px-3 mb-3 rounded-3" style="background:#f8fafc; border:1px solid #edf2f7;">
+                    <div>
+                      <span class="text-uppercase text-muted fw-bold d-block" style="font-size:0.65rem; letter-spacing:0.04em;">Monthly Rate</span>
+                      <span class="h4 fw-bold text-navy mb-0">₱<?= number_format($r['monthly_rate']) ?></span>
+                      <small class="text-muted fw-normal" style="font-size:0.75rem;">/ month</small>
+                    </div>
+                    <div class="text-end">
+                      <span class="text-uppercase text-muted fw-bold d-block" style="font-size:0.65rem; letter-spacing:0.04em;">Occupancy</span>
+                      <span class="badge bg-white text-navy border fw-semibold px-2 py-1">
+                        <i class="bi bi-people-fill text-primary me-1"></i> Max <?= $r['max_pax'] ?? ($isPrivate ? '6' : '3') ?> Pax
+                      </span>
+                    </div>
                   </div>
-                  <p class="small text-muted mb-2"><?= htmlspecialchars($r['inclusions']) ?></p>
-                  
+
+                  <!-- Feature Chips -->
+                  <div class="d-flex flex-wrap gap-1 mb-3">
+                    <?php if ($isPrivate): ?>
+                      <span class="room-chip"><i class="bi bi-house-fill text-primary"></i> Standalone</span>
+                      <span class="room-chip"><i class="bi bi-shield-check text-success"></i> 100% Private</span>
+                      <span class="room-chip"><i class="bi bi-droplet-fill text-info"></i> Private CR</span>
+                    <?php else: ?>
+                      <span class="room-chip"><i class="bi bi-door-open-fill text-primary"></i> Solo Room</span>
+                      <span class="room-chip"><i class="bi bi-cup-hot-fill text-warning"></i> Kitchen Area</span>
+                      <span class="room-chip"><i class="bi bi-droplet-half text-info"></i> Shared CR</span>
+                    <?php endif; ?>
+                    <span class="room-chip text-danger"><i class="bi bi-lightning-charge-fill"></i> Bills Excluded</span>
+                  </div>
+
+                  <!-- Resident / Availability Information Box -->
                   <?php if ($isOccupied && !empty($r['current_tenant'])): ?>
                     <?php
                       $tenantInitials = strtoupper(substr($r['current_tenant'], 0, 1) . substr(strrchr($r['current_tenant'], ' ') ?: '', 1, 1));
                       if (!$tenantInitials) $tenantInitials = 'TN';
                     ?>
-                    <div class="mb-3">
-                      <div class="small text-muted mb-1">Current Resident:</div>
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="avatar-circle sm"><?= htmlspecialchars($tenantInitials) ?></div>
-                        <div>
-                          <span class="fw-bold text-navy small d-block"><?= htmlspecialchars($r['current_tenant']) ?></span>
-                          <small class="text-muted" style="font-size:0.75rem;"><?= htmlspecialchars($r['tenant_phone'] ?? 'Active Lease') ?></small>
+                    <div class="room-resident-card mb-3">
+                      <div class="avatar-circle md me-3 flex-shrink-0 bg-primary text-white shadow-sm fw-bold">
+                        <?= htmlspecialchars($tenantInitials) ?>
+                      </div>
+                      <div class="overflow-hidden flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <span class="badge bg-success-subtle text-success fw-bold" style="font-size:0.65rem;"><i class="bi bi-check-circle-fill me-1"></i> Active Tenant</span>
+                          <?php if (!empty($r['move_in_date'])): ?>
+                            <small class="text-muted" style="font-size:0.7rem;"><i class="bi bi-calendar-event me-1"></i>Since <?= date('M Y', strtotime($r['move_in_date'])) ?></small>
+                          <?php endif; ?>
+                        </div>
+                        <h6 class="fw-bold text-navy mb-0 text-truncate" style="font-size:0.9rem;"><?= htmlspecialchars($r['current_tenant']) ?></h6>
+                        <div class="small text-muted text-truncate" style="font-size:0.75rem;">
+                          <a href="tel:<?= preg_replace('/[^0-9]/', '', $r['tenant_phone']) ?>" class="text-muted text-decoration-none">
+                            <i class="bi bi-telephone-fill text-primary me-1"></i><?= htmlspecialchars($r['tenant_phone'] ?? 'Active Lease') ?>
+                          </a>
                         </div>
                       </div>
                     </div>
                   <?php else: ?>
-                    <div class="p-3 bg-light rounded text-center mb-3">
-                      <i class="bi bi-key fs-3 text-success"></i>
-                      <div class="small fw-bold text-success mt-1">Available for Lease</div>
-                      <div class="text-muted" style="font-size:0.75rem;">Move-in ready unit</div>
+                    <div class="room-resident-card vacant mb-3">
+                      <div class="avatar-circle md me-3 flex-shrink-0 bg-success text-white shadow-sm">
+                        <i class="bi bi-door-open-fill fs-5"></i>
+                      </div>
+                      <div class="overflow-hidden flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <span class="badge bg-success text-white fw-bold" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i> Vacant Now</span>
+                          <small class="text-success fw-semibold" style="font-size:0.7rem;">Ready to Move In</small>
+                        </div>
+                        <h6 class="fw-bold text-success mb-0" style="font-size:0.9rem;">Available for Lease</h6>
+                        <small class="text-muted d-block" style="font-size:0.75rem;">No current resident &bull; Immediate turnover</small>
+                      </div>
                     </div>
                   <?php endif; ?>
 
-                  <div class="mt-auto pt-3 border-top">
+                  <!-- Bottom Card Actions -->
+                  <div class="mt-auto pt-3 border-top" style="border-top-color: #f1f5f9 !important;">
                     <div class="d-flex flex-column gap-2">
                       <?php if ($isOccupied): ?>
                         <form method="POST" action="rooms.php" onsubmit="return confirm('Mark Unit <?= htmlspecialchars($r['unit_code']) ?> as Vacant in MySQL?');">
                           <input type="hidden" name="action" value="update_status">
                           <input type="hidden" name="id" value="<?= $r['id'] ?>">
                           <input type="hidden" name="status" value="available">
-                          <button type="submit" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i> Mark as Vacant</button>
+                          <button type="submit" class="btn btn-light border text-muted hover-navy btn-sm w-100 fw-semibold py-2">
+                            <i class="bi bi-arrow-repeat me-1 text-primary"></i> Mark as Vacant
+                          </button>
                         </form>
                       <?php else: ?>
-                        <button type="button" class="btn btn-sm btn-ebh-primary w-100" data-toggle="modal" data-target="#addTenantModal" onclick="document.getElementById('assignModalRoom').value='<?= htmlspecialchars($r['unit_code']) ?>'; document.getElementById('assignModalRent').value='<?= $r['monthly_rate'] ?>';">
-                          <i class="bi bi-person-plus me-1"></i> Assign Tenant
+                        <button type="button" class="btn btn-ebh-primary btn-sm w-100 fw-bold py-2 shadow-sm" data-toggle="modal" data-target="#addTenantModal" onclick="document.getElementById('assignModalRoom').value='<?= htmlspecialchars($r['unit_code']) ?>'; document.getElementById('assignModalRent').value='<?= $r['monthly_rate'] ?>';">
+                          <i class="bi bi-person-plus-fill me-1"></i> Assign New Tenant
                         </button>
                       <?php endif; ?>
 
-                      <div class="btn-group btn-group-sm w-100">
-                        <button type="button" class="btn btn-outline-primary" onclick="openEditRoom(<?= $r['id'] ?>, '<?= htmlspecialchars($r['unit_code']) ?>', '<?= htmlspecialchars($r['room_type']) ?>', <?= $r['monthly_rate'] ?>, <?= $r['max_pax'] ?>, '<?= htmlspecialchars($r['status']) ?>', '<?= htmlspecialchars(addslashes($r['inclusions'])) ?>')">
-                          <i class="bi bi-pencil-square me-1"></i> Edit Unit
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1 py-1.5 fw-semibold" onclick="openEditRoom(<?= $r['id'] ?>, '<?= htmlspecialchars($r['unit_code']) ?>', '<?= htmlspecialchars($r['room_type']) ?>', <?= $r['monthly_rate'] ?>, <?= $r['max_pax'] ?>, '<?= htmlspecialchars($r['status']) ?>', '<?= htmlspecialchars(addslashes($r['inclusions'])) ?>')">
+                          <i class="bi bi-pencil-square me-1"></i> Edit Specifications
                         </button>
                         <form method="POST" action="rooms.php" class="d-inline" onsubmit="return confirm('Permanently delete Unit <?= htmlspecialchars($r['unit_code']) ?>?');">
                           <input type="hidden" name="action" value="delete_room">
                           <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash3"></i></button>
+                          <button type="submit" class="btn btn-outline-danger btn-sm px-3 py-1.5" title="Delete Unit"><i class="bi bi-trash3"></i></button>
                         </form>
                       </div>
                     </div>

@@ -2137,55 +2137,108 @@ window.loadRoomsGrid = function () {
         if (isOccupied && r.current_tenant) {
           const initials = r.current_tenant.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
           residentHtml = `
-            <div class="mb-3">
-              <div class="small text-muted mb-1">Current Resident:</div>
-              <div class="d-flex align-items-center gap-2">
-                <div class="avatar-circle sm">${initials}</div>
-                <div>
-                  <span class="fw-bold text-navy small d-block">${r.current_tenant}</span>
-                  <small class="text-muted" style="font-size:0.75rem;">${r.tenant_phone || 'Active Lease'}${r.move_in_date ? ' &bull; Moved ' + r.move_in_date : ''}</small>
+            <div class="room-resident-card mb-3">
+              <div class="avatar-circle md me-3 flex-shrink-0 bg-primary text-white shadow-sm fw-bold">${initials}</div>
+              <div class="overflow-hidden flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="badge bg-success-subtle text-success fw-bold" style="font-size:0.65rem;"><i class="bi bi-check-circle-fill me-1"></i> Active Tenant</span>
+                  ${r.move_in_date ? `<small class="text-muted" style="font-size:0.7rem;"><i class="bi bi-calendar-event me-1"></i>Since ${r.move_in_date}</small>` : ''}
+                </div>
+                <h6 class="fw-bold text-navy mb-0 text-truncate" style="font-size:0.9rem;">${r.current_tenant}</h6>
+                <div class="small text-muted text-truncate" style="font-size:0.75rem;">
+                  <a href="tel:${(r.tenant_phone || '').replace(/[^0-9]/g, '')}" class="text-muted text-decoration-none">
+                    <i class="bi bi-telephone-fill text-primary me-1"></i>${r.tenant_phone || 'Active Lease'}
+                  </a>
                 </div>
               </div>
             </div>
           `;
         } else {
           residentHtml = `
-            <div class="mb-3">
-              <div class="small text-muted mb-1">Current Status:</div>
-              <span class="badge bg-light text-success border py-1 px-2 small"><i class="bi bi-check-circle me-1"></i> Ready for immediate occupancy</span>
+            <div class="room-resident-card vacant mb-3">
+              <div class="avatar-circle md me-3 flex-shrink-0 bg-success text-white shadow-sm">
+                <i class="bi bi-door-open-fill fs-5"></i>
+              </div>
+              <div class="overflow-hidden flex-grow-1">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="badge bg-success text-white fw-bold" style="font-size:0.65rem;"><i class="bi bi-sparkles me-1"></i> Vacant Now</span>
+                  <small class="text-success fw-semibold" style="font-size:0.7rem;">Ready to Move In</small>
+                </div>
+                <h6 class="fw-bold text-success mb-0" style="font-size:0.9rem;">Available for Lease</h6>
+                <small class="text-muted d-block" style="font-size:0.75rem;">No current resident &bull; Immediate turnover</small>
+              </div>
             </div>
           `;
         }
 
-        const roomCategoryPill = isPrivate ? 'Private House' : 'Boarding House';
+        const roomCategoryPill = isPrivate 
+          ? '<span class="badge bg-purple-subtle"><i class="bi bi-house-door-fill me-1"></i> Private</span>'
+          : '<span class="badge bg-blue-subtle"><i class="bi bi-building me-1"></i> Boarding</span>';
+
+        const statusPill = isOccupied
+          ? '<span class="badge bg-danger-subtle"><i class="bi bi-lock-fill me-1"></i> Occupied</span>'
+          : '<span class="badge bg-success-subtle"><i class="bi bi-sparkles me-1"></i> Available</span>';
+
+        const featureChips = isPrivate
+          ? `
+            <span class="room-chip"><i class="bi bi-house-fill text-primary"></i> Standalone</span>
+            <span class="room-chip"><i class="bi bi-shield-check text-success"></i> 100% Private</span>
+            <span class="room-chip"><i class="bi bi-droplet-fill text-info"></i> Private CR</span>
+            <span class="room-chip text-danger"><i class="bi bi-lightning-charge-fill"></i> Bills Excluded</span>
+          `
+          : `
+            <span class="room-chip"><i class="bi bi-door-open-fill text-primary"></i> Solo Room</span>
+            <span class="room-chip"><i class="bi bi-cup-hot-fill text-warning"></i> Kitchen Area</span>
+            <span class="room-chip"><i class="bi bi-droplet-half text-info"></i> Shared CR</span>
+            <span class="room-chip text-danger"><i class="bi bi-lightning-charge-fill"></i> Bills Excluded</span>
+          `;
+
         const actionHtml = isOccupied
-          ? `<button class="btn btn-sm btn-outline-secondary w-100" onclick="window.updateRoomStatus(${r.id}, 'available')"><i class="bi bi-arrow-repeat me-1"></i> Mark as Vacant</button>`
-          : `<button class="btn btn-sm btn-ebh-primary w-100" data-toggle="modal" data-target="#addTenantModal"><i class="bi bi-person-plus me-1"></i> Assign Tenant</button>`;
+          ? `<button class="btn btn-light border text-muted hover-navy btn-sm w-100 fw-semibold py-2" onclick="window.updateRoomStatus(${r.id}, 'available')"><i class="bi bi-arrow-repeat me-1 text-primary"></i> Mark as Vacant</button>`
+          : `<button class="btn btn-ebh-primary btn-sm w-100 fw-bold py-2 shadow-sm" data-toggle="modal" data-target="#addTenantModal"><i class="bi bi-person-plus-fill me-1"></i> Assign New Tenant</button>`;
 
         html += `
-          <div class="col-md-6 col-lg-4 filterable-item" data-category="${r.category} ${r.status}" data-status="${r.status}">
-            <div class="room-card h-100">
+          <div class="col-md-6 col-lg-4 mb-4 filterable-item" data-category="${r.category} ${r.status}" data-status="${r.status}">
+            <div class="room-card h-100 ${isOccupied ? 'is-occupied' : 'is-available'}">
               <div class="room-card-header">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center gap-2">
                   <span class="room-status-dot ${r.status}"></span>
-                  <strong class="text-navy">Unit ${r.unit_code}</strong>
-                  <span class="badge badge-light border ms-2 small">${roomCategoryPill}</span>
+                  <span class="room-unit-badge">Unit ${r.unit_code}</span>
+                  ${roomCategoryPill}
                 </div>
-                ${statusBadge}
+                ${statusPill}
               </div>
               <div class="ebh-card-body d-flex flex-column flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-muted small">${r.room_type}</span>
-                  <span class="fw-bold text-navy fs-5">${r.monthly_rate_formatted}<small class="text-muted fw-normal">/mo</small></span>
+                <!-- Pricing & Capacity Highlight -->
+                <div class="d-flex justify-content-between align-items-center py-2 px-3 mb-3 rounded-3" style="background:#f8fafc; border:1px solid #edf2f7;">
+                  <div>
+                    <span class="text-uppercase text-muted fw-bold d-block" style="font-size:0.65rem; letter-spacing:0.04em;">Monthly Rate</span>
+                    <span class="h4 fw-bold text-navy mb-0">${r.monthly_rate_formatted}</span>
+                    <small class="text-muted fw-normal" style="font-size:0.75rem;">/ month</small>
+                  </div>
+                  <div class="text-end">
+                    <span class="text-uppercase text-muted fw-bold d-block" style="font-size:0.65rem; letter-spacing:0.04em;">Occupancy</span>
+                    <span class="badge bg-white text-navy border fw-semibold px-2 py-1">
+                      <i class="bi bi-people-fill text-primary me-1"></i> Max ${r.max_pax || (isPrivate ? '6' : '3')} Pax
+                    </span>
+                  </div>
                 </div>
-                <p class="small text-muted mb-2">${r.inclusions}</p>
+
+                <!-- Feature Chips -->
+                <div class="d-flex flex-wrap gap-1 mb-3">
+                  ${featureChips}
+                </div>
+
+                <!-- Resident / Availability Information Box -->
                 ${residentHtml}
-                <div class="mt-auto pt-3 border-top">
+
+                <!-- Bottom Card Actions -->
+                <div class="mt-auto pt-3 border-top" style="border-top-color: #f1f5f9 !important;">
                   <div class="d-flex flex-column gap-2">
                     ${actionHtml}
-                    <div class="btn-group btn-group-sm w-100">
-                      <button type="button" class="btn btn-outline-primary" title="Edit Unit Specifications" onclick="window.openEditRoomModal(${r.id}, '${r.unit_code}', '${r.room_type}', ${r.monthly_rate}, ${r.max_pax}, '${encodeURIComponent(r.inclusions || '')}', '${r.status}')"><i class="bi bi-pencil-square me-1"></i> Edit Unit</button>
-                      <button type="button" class="btn btn-outline-danger" title="Permanently Delete Unit" onclick="window.deleteRoom(${r.id}, '${r.unit_code}')"><i class="bi bi-trash3 me-1"></i> Delete</button>
+                    <div class="d-flex gap-2">
+                      <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1 py-1.5 fw-semibold" title="Edit Unit Specifications" onclick="window.openEditRoomModal(${r.id}, '${r.unit_code}', '${r.room_type}', ${r.monthly_rate}, ${r.max_pax}, '${encodeURIComponent(r.inclusions || '')}', '${r.status}')"><i class="bi bi-pencil-square me-1"></i> Edit Specifications</button>
+                      <button type="button" class="btn btn-outline-danger btn-sm px-3 py-1.5" title="Permanently Delete Unit" onclick="window.deleteRoom(${r.id}, '${r.unit_code}')"><i class="bi bi-trash3"></i></button>
                     </div>
                   </div>
                 </div>
