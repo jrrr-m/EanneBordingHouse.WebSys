@@ -4,7 +4,7 @@ A web-based Boarding House and Rental Property Management System customized for 
 
 ---
 
-## 🗂️ Project Structure & GitHub File Navigation
+## Project Structure & GitHub File Navigation
 
 Below is a map of the repository files, their roles, and linked scripts:
 
@@ -59,7 +59,7 @@ EanneBordingHouse.WebSys/
 
 ---
 
-## 📄 Page Directory & Feature Breakdown
+## Page Directory & Feature Breakdown
 
 | Page | File | Roles | Core Features |
 | :--- | :--- | :--- | :--- |
@@ -92,7 +92,7 @@ This system meets all server-side script and maintenance requirements:
 
 ---
 
-## ⚙️ Installation & Setup (XAMPP)
+## Installation & Setup (XAMPP)
 
 Follow these steps to set up and run the system on a new computer or local development server:
 
@@ -148,7 +148,7 @@ http://localhost/EanneBordingHouse.WebSys/pages/login.html
 
 ---
 
-## 🔑 Default Credentials
+## Default Credentials
 
 The system provides ready-to-use accounts for immediate access and testing:
 
@@ -191,7 +191,7 @@ The system provides ready-to-use accounts for immediate access and testing:
 
 ---
 
-## 📡 Database Architecture & Real-Time Sync
+## Database Architecture & Real-Time Sync
 
 The system uses AJAX polling and unified helper functions in [`assets/js/script.js`](assets/js/script.js) to keep all pages synchronized with MySQL without requiring page reloads:
 
