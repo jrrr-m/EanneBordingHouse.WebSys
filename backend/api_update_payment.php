@@ -1,4 +1,4 @@
-    fyy<?php
+<?php
 // ====================================================================
 // Eanne Boarding House - Admin Approve / Reject Payment API
 // Updates payment status in MySQL to 'verified' or 'rejected'.
