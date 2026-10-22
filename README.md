@@ -148,23 +148,39 @@ http://localhost/EanneBordingHouse.WebSys/pages/login.html
 
 ---
 
-## Default Credentials
+## Default Credentials & User Accounts Directory
 
-The system provides ready-to-use accounts for immediate access and testing:
+The system provides pre-configured seed accounts for immediate access, grading, and role-based testing:
 
-### 1. Landlord / Property Admin
+### 1. Landlord / Property Administrator
 - **Username:** `admin`
 - **Password:** `admin12345`
+- **Full Name:** Landlord Admin
 - **Role:** Administrator (Full compound control, verification queue, room inventory, financial ledgers)
-- **Destination:** [`pages/admin-dashboard.html`](pages/admin-dashboard.html)
+- **Portal URL:** [`pages/admin-dashboard.html`](pages/admin-dashboard.html)
 
-### 2. Active Tenant (Maria Clara Santos)
-- **Username:** `tenant`
-- **Password:** `tenant12345`
-- **Role:** Tenant (Unit BH-02 Resident)
-- **Destination:** [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)
+---
 
-*Additional active tenants: Carlos Dominguez (`carlos` / `carlos12345`), Juan Dela Cruz (`juan` / `juan12345`), Elena Garcia (`elena` / `elena12345`), and Eduardo & Grace Reyes (`eduardo` / `eduardo12345`). Historical lease completed: Ricardo Mendoza (`ricardo` / `ricardo12345`).*
+### 2. Complete Tenant Accounts Roster
+
+All resident accounts sign in through [`pages/login.html`](pages/login.html) and are automatically routed to [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html):
+
+| Full Name | Username | Password | Unit | Monthly Rent | Contact No. / Email | Lease Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Maria Clara Santos** | `tenant` | `tenant12345` | **BH-02** | ₱3,500.00 | 0917-882-9901<br>`maria.clara@gmail.com` | **Active** (Primary Demo) |
+| **Carlos Dominguez** | `carlos` | `carlos12345` | **BH-01** | ₱3,500.00 | 0917-234-5678<br>`carlos.d@gmail.com` | **Active** |
+| **Juan Dela Cruz** | `juan` | `juan12345` | **BH-03** | ₱3,500.00 | 0918-345-6789<br>`juan.delacruz@yahoo.com` | **Active** |
+| **Elena Garcia** | `elena` | `elena12345` | **BH-04** | ₱3,500.00 | 0919-456-7890<br>`elena.garcia@outlook.com` | **Active** |
+| **Eduardo & Grace Reyes** | `eduardo` | `eduardo12345` | **PB-01** | ₱8,000.00 | 0917-889-4455<br>`reyes.family@gmail.com` | **Active** (Private House) |
+| **Ricardo Mendoza** | `ricardo` | `ricardo12345` | **PB-02** | ₱8,000.00 | 0917-991-2233<br>`ricardo.mendoza@gmail.com` | **Inactive** (Move-out / Historical) |
+
+---
+
+### 3. Newly Registered Tenants (Runtime Accounts)
+When creating new tenant records via **User Maintenance** ([`pages/tenants.html`](pages/tenants.html)):
+- **Generated Username:** Auto-generated from tenant's first & last name plus a random 2-digit suffix (e.g., `juandelacruz42`).
+- **Default Password:** `welcome12345` (set in [`backend/api_tenants.php`](backend/api_tenants.php)).
+- **Role:** `tenant` (assigned unit occupancy status updates automatically in MySQL).
 
 ---
 

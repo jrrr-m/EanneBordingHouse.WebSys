@@ -30,28 +30,34 @@
 
 ---
 
-## System Login Credentials
+## System Login Credentials & User Accounts
 
-### 1. Landlord (Admin)
+### 1. Landlord (Administrator)
 - **Username:** `admin`
 - **Password:** `admin12345`
+- **Role:** Administrator (Full compound control, verification queue, room inventory, financial ledgers)
 - **Destination:** [pages/admin-dashboard.html](pages/admin-dashboard.html)
 
 ---
 
-### 2. Tenant (Maria Clara Santos)
-- **Username:** `tenant`
-- **Password:** `tenant12345`
-- **Destination:** [pages/tenant-dashboard.html](pages/tenant-dashboard.html)
+### 2. Complete Tenant Accounts Roster
+
+All tenants log in via [pages/login.html](pages/login.html) and access their billing statement and services at [pages/tenant-dashboard.html](pages/tenant-dashboard.html):
+
+| Full Name | Username | Password | Unit Assigned | Monthly Rent | Contact No. / Email | Lease Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Maria Clara Santos** | `tenant` | `tenant12345` | **BH-02** | ₱3,500.00 | 0917-882-9901<br>`maria.clara@gmail.com` | **Active** (Primary Demo) |
+| **Carlos Dominguez** | `carlos` | `carlos12345` | **BH-01** | ₱3,500.00 | 0917-234-5678<br>`carlos.d@gmail.com` | **Active** |
+| **Juan Dela Cruz** | `juan` | `juan12345` | **BH-03** | ₱3,500.00 | 0918-345-6789<br>`juan.delacruz@yahoo.com` | **Active** |
+| **Elena Garcia** | `elena` | `elena12345` | **BH-04** | ₱3,500.00 | 0919-456-7890<br>`elena.garcia@outlook.com` | **Active** |
+| **Eduardo & Grace Reyes** | `eduardo` | `eduardo12345` | **PB-01** | ₱8,000.00 | 0917-889-4455<br>`reyes.family@gmail.com` | **Active** (Private House) |
+| **Ricardo Mendoza** | `ricardo` | `ricardo12345` | **PB-02** | ₱8,000.00 | 0917-991-2233<br>`ricardo.mendoza@gmail.com` | **Inactive** (Lease Completed) |
 
 ---
 
-### 3. Additional Tenant Accounts
-- **Carlos Dominguez:** `carlos` / `carlos12345` (Unit BH-01, Active)
-- **Juan Dela Cruz:** `juan` / `juan12345` (Unit BH-03, Active)
-- **Elena Garcia:** `elena` / `elena12345` (Unit BH-04, Active)
-- **Eduardo & Grace Reyes:** `eduardo` / `eduardo12345` (Unit PB-01, Active)
-- **Ricardo Mendoza:** `ricardo` / `ricardo12345` (Unit PB-02, Completed Lease)
+### 3. Newly Registered Tenants (Runtime Accounts)
+- **Username Pattern:** Auto-generated `[clean_name][2-digit-random]` (e.g., `juandelacruz42`)
+- **Default Password:** `welcome12345` (configured in `backend/api_tenants.php`)
 
 ---
 
