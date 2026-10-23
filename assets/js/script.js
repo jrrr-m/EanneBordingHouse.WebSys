@@ -614,12 +614,38 @@ $(document).ready(function () {
 
       $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span> Submitting request...');
 
-      setTimeout(function () {
-        $btn.prop('disabled', false).html(originalText);
-        $contactForm[0].reset();
-        $('#contactSuccessAlert').slideDown(250);
-        showToast('Viewing Scheduled', 'Thank you! The landlord will contact you to confirm your schedule.', 'success');
-      }, 700);
+      const postData = {
+        action: 'create',
+        user_name: $('#contactFullName').val() || $(this).find('input[type="text"]').val() || '',
+        contact_phone: $('#contactMobile').val() || $(this).find('input[type="tel"]').val() || '',
+        unit_or_type: $('#contactRoomType').val() || $(this).find('select').val() || 'General Inquiry',
+        preferred_date: $('#contactPreferredDate').val() || $(this).find('input[type="date"]').val() || '',
+        notes: $('#contactNotes').val() || $(this).find('textarea').val() || ''
+      };
+
+      $.ajax({
+        url: window.getEbhApiUrl('api_viewings.php'),
+        type: 'POST',
+        data: postData,
+        dataType: 'json',
+        success: function (res) {
+          $btn.prop('disabled', false).html(originalText);
+          if (res.success) {
+            $contactForm[0].reset();
+            $('#contactSuccessAlert').slideDown(250);
+            showToast('Viewing Scheduled', res.message || 'Thank you! The landlord will contact you to confirm your schedule.', 'success');
+            if (typeof window.loadAdminViewingsQueue === 'function') {
+              window.loadAdminViewingsQueue();
+            }
+          } else {
+            showToast('Submission Failed', res.error || 'Could not schedule viewing.', 'danger');
+          }
+        },
+        error: function (xhr, status, err) {
+          $btn.prop('disabled', false).html(originalText);
+          showToast('Connection Error', 'Could not schedule viewing: ' + err, 'danger');
+        }
+      });
     });
   }
 
@@ -770,6 +796,9 @@ $(document).ready(function () {
   }
   if ($('#adminPendingTable').length) {
     window.loadAdminPendingQueue();
+  }
+  if ($('#adminViewingsTable').length) {
+    window.loadAdminViewingsQueue();
   }
   if ($('#reportsTable').length) {
     window.loadReportsLedger();
@@ -1689,6 +1718,94 @@ window.loadAdminPendingQueue = function () {
       }
     }
   });
+// Fetch and Populate Viewings Queue Table on admin-dashboard from MySQL
+window.loadAdminViewingsQueue = function () {
+  const $tbody = $('#adminViewingsTable tbody');
+  if (!$tbody.length) return;
+
+  $.ajax({
+    url: window.getEbhApiUrl('api_viewings.php'),
+    type: 'GET',
+    dataType: 'json',
+    success: function (res) {
+      if (res.success && res.requests && res.requests.length) {
+        let html = '';
+        res.requests.forEach(function (vr) {
+          const initials = (vr.user_name || 'VR').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+          const isPending = vr.status === 'pending';
+          const isConfirmed = vr.status === 'confirmed';
+          const isCompleted = vr.status === 'completed';
+
+          let statusBadge = `<span class="badge badge-danger">${vr.status}</span>`;
+          if (isPending) {
+            statusBadge = `<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span>`;
+          } else if (isConfirmed) {
+            statusBadge = `<span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Confirmed</span>`;
+          } else if (isCompleted) {
+            statusBadge = `<span class="badge badge-secondary"><i class="bi bi-check-all"></i> Completed</span>`;
+          }
+
+          let actionsHtml = '<span class="text-muted small">&mdash;</span>';
+          if (isPending) {
+            actionsHtml = `
+              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Confirm viewing visit for ${window.escapeJs(vr.user_name)}?');">
+                <input type="hidden" name="action" value="update_viewing_status">
+                <input type="hidden" name="viewing_id" value="${vr.id}">
+                <input type="hidden" name="status" value="confirmed">
+                <button type="submit" class="btn btn-sm btn-primary" title="Confirm Appointment"><i class="bi bi-check-lg"></i> Confirm</button>
+              </form>
+              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Cancel this viewing request?');">
+                <input type="hidden" name="action" value="update_viewing_status">
+                <input type="hidden" name="viewing_id" value="${vr.id}">
+                <input type="hidden" name="status" value="cancelled">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel"><i class="bi bi-x-lg"></i></button>
+              </form>
+            `;
+          } else if (isConfirmed) {
+            actionsHtml = `
+              <form method="POST" action="admin-dashboard.php" class="d-inline">
+                <input type="hidden" name="action" value="update_viewing_status">
+                <input type="hidden" name="viewing_id" value="${vr.id}">
+                <input type="hidden" name="status" value="completed">
+                <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed"><i class="bi bi-check-all"></i> Done</button>
+              </form>
+            `;
+          }
+
+          html += `
+            <tr class="${isPending ? 'table-warning' : ''}" id="viewing-row-${vr.id}">
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="avatar-circle sm bg-light border text-navy">${initials}</div>
+                  <div>
+                    <strong class="text-navy d-block">${vr.user_name}</strong>
+                    ${vr.notes ? `<small class="text-muted d-block text-truncate" style="max-width:200px;" title="${window.escapeJs(vr.notes)}"><i class="bi bi-chat-left-text me-1"></i>${vr.notes}</small>` : ''}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <a href="tel:${vr.contact_phone}" class="fw-semibold text-navy text-decoration-none">
+                  <i class="bi bi-telephone text-primary me-1"></i>${vr.contact_phone}
+                </a>
+              </td>
+              <td>
+                <span class="badge badge-light border text-navy"><i class="bi bi-door-open me-1"></i>${vr.unit_or_type}</span>
+              </td>
+              <td>
+                <small class="fw-semibold text-navy d-block"><i class="bi bi-calendar-event text-primary me-1"></i>${vr.preferred_date_formatted || vr.preferred_date}</small>
+                <small class="text-muted" style="font-size:0.75rem;">Submitted ${vr.created_at_formatted || vr.created_at}</small>
+              </td>
+              <td>${statusBadge}</td>
+              <td class="text-end">${actionsHtml}</td>
+            </tr>
+          `;
+        });
+        $tbody.html(html);
+      } else {
+        $tbody.html('<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-calendar-x text-muted fs-3 d-block mb-1"></i>No viewing schedule requests received yet.</td></tr>');
+      }
+    }
+  });
 };
 
 // Fetch and Populate Reports Ledger on reports.html from MySQL
@@ -1828,7 +1945,7 @@ window.removeTenantRow = function (btn, id, name) {
 };
 
 // Open Edit Tenant Modal (User Maintenance - Edit Function)
-window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, moveIn, status) {
+window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, moveIn, status, username) {
   $('#editTenantId').val(id);
   $('#editTenantName').val(name);
   $('#editTenantContact').val(phone);
@@ -1837,6 +1954,9 @@ window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, m
   $('#editTenantRoom').val((unitCode || '').replace('Unit ', '').trim());
   $('#editTenantRent').val(rent || 3500);
   $('#editTenantStatus').val(status || 'active');
+  $('#editTenantUsername').val(username || '').prop('required', false);
+  $('#editTenantUsernameReq').hide();
+  $('#editTenantPassword').val('');
   $('#editTenantModal').modal('show');
 };
 
@@ -2302,6 +2422,8 @@ window.updateRoomStatus = function (roomId, newStatus) {
           showToast('Room Status Updated', res.message, 'success');
           window.loadRoomsGrid();
           window.loadGlobalStats();
+          if (typeof window.loadTenantsList === 'function') window.loadTenantsList();
+          if (typeof window.syncPublicAvailability === 'function') window.syncPublicAvailability();
         } else {
           showToast('Update Failed', res.error || 'Could not update status.', 'danger');
         }
@@ -2361,7 +2483,7 @@ window.loadTenantsList = function () {
             <td class="text-end">
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${(t.full_name || '').replace(/'/g, "\\'")}', 'Unit ${t.unit_code}', '${(t.room_type || '').replace(/'/g, "\\'")}', '${t.monthly_rent_formatted}', '${(t.phone || '').replace(/'/g, "\\'")}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
-                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', ${balNum})"><i class="bi bi-pencil-square"></i></button>
+                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', '${(t.username || '').replace(/'/g, "\\'")}')"><i class="bi bi-pencil-square"></i></button>
                 <button type="button" class="btn btn-outline-secondary" title="Mark Move Out / Inactive" onclick="removeTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-box-arrow-right"></i></button>
                 <button type="button" class="btn btn-outline-danger" title="Permanently Delete Tenant Account" onclick="window.deleteTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
               </div>

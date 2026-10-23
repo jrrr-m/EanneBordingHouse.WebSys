@@ -85,6 +85,18 @@ try {
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `resolved_at` DATETIME NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS `viewing_requests` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT NULL,
+            `user_name` VARCHAR(100) NOT NULL,
+            `contact_phone` VARCHAR(50) NOT NULL,
+            `unit_or_type` VARCHAR(100) NOT NULL,
+            `preferred_date` DATE NOT NULL,
+            `notes` TEXT NULL,
+            `status` ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
     if ($isReset) {

@@ -298,13 +298,41 @@ if ($method === 'GET') {
             $oldUnitCode = $currentTenant['unit_code'];
             $newBalance = $balance !== null ? $balance : (float)$currentTenant['balance'];
 
-            // Update tenant details
-            $stmtUp = $pdo->prepare("
-                UPDATE users 
-                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
-                WHERE id = ?
-            ");
-            $stmtUp->execute([$fullName, $phone, $email, $newUnitCode, $monthlyRent, $newBalance, $moveInDate, $leaseStatus, $tenantId]);
+            $newPassword = trim($_POST['password'] ?? '');
+            $customUsername = trim($_POST['username'] ?? '');
+
+            if (!empty($newPassword)) {
+                if (empty($customUsername)) {
+                    $pdo->rollBack();
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'Username is required when changing password.']);
+                    exit;
+                }
+                $cleanedUsername = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername));
+                $uCheck = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+                $uCheck->execute([$cleanedUsername, $tenantId]);
+                if ($uCheck->fetch()) {
+                    $pdo->rollBack();
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => "Username '{$cleanedUsername}' is already taken."]);
+                    exit;
+                }
+                $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                $stmtUp = $pdo->prepare("
+                    UPDATE users 
+                    SET full_name = ?, username = ?, password = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                    WHERE id = ?
+                ");
+                $stmtUp->execute([$fullName, $cleanedUsername, $hashedPassword, $phone, $email, $newUnitCode, $monthlyRent, $newBalance, $moveInDate, $leaseStatus, $tenantId]);
+            } else {
+                // Keep existing username intact, do not overwrite or modify
+                $stmtUp = $pdo->prepare("
+                    UPDATE users 
+                    SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                    WHERE id = ?
+                ");
+                $stmtUp->execute([$fullName, $phone, $email, $newUnitCode, $monthlyRent, $newBalance, $moveInDate, $leaseStatus, $tenantId]);
+            }
 
             // Sync room statuses
             if ($leaseStatus === 'inactive') {

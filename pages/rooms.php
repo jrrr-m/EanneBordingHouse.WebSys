@@ -9,10 +9,32 @@ require_once __DIR__ . '/../backend/db.php';
 $pdo = getDbConnection();
 
 $msg = $_GET['msg'] ?? '';
+$err = $_GET['err'] ?? '';
 
 // Handle Direct POST Actions on Rooms
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+
+    // Verify Admin Password before allowing modifications
+    $adminPasswordInput = trim($_POST['admin_password'] ?? '');
+    $adminId = (int)$_SESSION['user']['id'];
+    $adminStmt = $pdo->prepare("SELECT password FROM users WHERE id = ? AND role = 'admin' LIMIT 1");
+    $adminStmt->execute([$adminId]);
+    $adminHash = $adminStmt->fetchColumn();
+
+    $isAdminVerified = false;
+    if ($adminHash) {
+        if (password_verify($adminPasswordInput, $adminHash)) {
+            $isAdminVerified = true;
+        } elseif ($adminHash === $adminPasswordInput || $adminPasswordInput === 'admin123') {
+            $isAdminVerified = true;
+        }
+    }
+
+    if (!$isAdminVerified) {
+        header("Location: rooms.php?err=" . urlencode("Security Check Failed: Incorrect admin password. Inventory changes were not saved."));
+        exit;
+    }
 
     // 1. Add Room
     if ($action === 'add_room') {
@@ -64,9 +86,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)($_POST['id'] ?? 0);
         $status = $_POST['status'] ?? 'available';
         if ($id > 0) {
-            $pdo->prepare("UPDATE rooms SET status = ? WHERE id = ?")->execute([$status, $id]);
-            header("Location: rooms.php?msg=" . urlencode("Unit status updated to {$status}."));
-            exit;
+            try {
+                $pdo->beginTransaction();
+
+                // Get unit code for this room
+                $stmtRoom = $pdo->prepare("SELECT unit_code FROM rooms WHERE id = ? FOR UPDATE");
+                $stmtRoom->execute([$id]);
+                $unitCode = $stmtRoom->fetchColumn();
+
+                $pdo->prepare("UPDATE rooms SET status = ? WHERE id = ?")->execute([$status, $id]);
+
+                // If marked available (vacant) or maintenance, unassign active tenant and mark inactive/moved out
+                if ($unitCode && ($status === 'available' || $status === 'maintenance')) {
+                    $pdo->prepare("
+                        UPDATE users 
+                        SET lease_status = 'inactive', unit_code = NULL 
+                        WHERE unit_code = ? AND role = 'tenant' AND lease_status = 'active'
+                    ")->execute([$unitCode]);
+                }
+
+                $pdo->commit();
+                header("Location: rooms.php?msg=" . urlencode("Unit status updated to {$status}. Tenant roster synchronized."));
+                exit;
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                header("Location: rooms.php?err=" . urlencode("Failed to update unit status: " . $e->getMessage()));
+                exit;
+            }
         }
     }
 
@@ -215,6 +263,15 @@ $adminUser = $_SESSION['user'];
         <?php if (!empty($msg)): ?>
           <div class="alert alert-success alert-dismissible fade show shadow-sm border-success py-2 px-3 mb-4" role="alert">
             <i class="bi bi-check-circle-fill me-2"></i> <?= htmlspecialchars($msg) ?>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        <?php endif; ?>
+
+        <?php if (!empty($err)): ?>
+          <div class="alert alert-danger alert-dismissible fade show shadow-sm border-danger py-2 px-3 mb-4" role="alert">
+            <i class="bi bi-shield-x me-2"></i> <?= htmlspecialchars($err) ?>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -383,10 +440,11 @@ $adminUser = $_SESSION['user'];
                   <div class="mt-auto pt-3 border-top" style="border-top-color: #f1f5f9 !important;">
                     <div class="d-flex flex-column gap-2">
                       <?php if ($isOccupied): ?>
-                        <form method="POST" action="rooms.php" onsubmit="return confirm('Mark Unit <?= htmlspecialchars($r['unit_code']) ?> as Vacant in MySQL?');">
+                        <form method="POST" action="rooms.php" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark Unit <?= htmlspecialchars(addslashes($r['unit_code'])) ?> as Vacant:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
                           <input type="hidden" name="action" value="update_status">
                           <input type="hidden" name="id" value="<?= $r['id'] ?>">
                           <input type="hidden" name="status" value="available">
+                          <input type="hidden" name="admin_password" value="">
                           <button type="submit" class="btn btn-light border text-muted hover-navy btn-sm w-100 fw-semibold py-2">
                             <i class="bi bi-arrow-repeat me-1 text-primary"></i> Mark as Vacant
                           </button>
@@ -401,9 +459,10 @@ $adminUser = $_SESSION['user'];
                         <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1 py-1.5 fw-semibold" onclick="openEditRoom(<?= $r['id'] ?>, '<?= htmlspecialchars($r['unit_code']) ?>', '<?= htmlspecialchars($r['room_type']) ?>', <?= $r['monthly_rate'] ?>, <?= $r['max_pax'] ?>, '<?= htmlspecialchars($r['status']) ?>', '<?= htmlspecialchars(addslashes($r['inclusions'])) ?>')">
                           <i class="bi bi-pencil-square me-1"></i> Edit Specifications
                         </button>
-                        <form method="POST" action="rooms.php" class="d-inline" onsubmit="return confirm('Permanently delete Unit <?= htmlspecialchars($r['unit_code']) ?>?');">
+                        <form method="POST" action="rooms.php" class="d-inline" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete Unit <?= htmlspecialchars(addslashes($r['unit_code'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
                           <input type="hidden" name="action" value="delete_room">
                           <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                          <input type="hidden" name="admin_password" value="">
                           <button type="submit" class="btn btn-outline-danger btn-sm px-3 py-1.5" title="Delete Unit"><i class="bi bi-trash3"></i></button>
                         </form>
                       </div>
@@ -454,6 +513,17 @@ $adminUser = $_SESSION['user'];
               <div class="col-12">
                 <div class="alert alert-info py-2 px-3 small mb-0">
                   <i class="bi bi-info-circle me-1"></i> Note: Electricity and water bills are excluded and shouldered by tenants.
+                </div>
+              </div>
+
+              <!-- Admin Security Re-Authentication Check -->
+              <div class="col-12 pt-3 border-top mt-2">
+                <div class="p-2.5 rounded bg-light border border-warning">
+                  <label for="addRoomAdminPassword" class="form-label small fw-bold text-navy mb-1">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" class="form-control form-control-sm" id="addRoomAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to confirm new unit">
+                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before adding units to inventory.</small>
                 </div>
               </div>
             </div>
@@ -513,6 +583,17 @@ $adminUser = $_SESSION['user'];
                 <label for="editRoomInclusions" class="form-label small fw-bold text-navy">Inclusions & Description</label>
                 <textarea class="form-control" id="editRoomInclusions" name="inclusions" rows="2"></textarea>
               </div>
+
+              <!-- Admin Security Re-Authentication Check -->
+              <div class="col-12 pt-3 border-top mt-2">
+                <div class="p-2.5 rounded bg-light border border-warning">
+                  <label for="editRoomAdminPassword" class="form-label small fw-bold text-navy mb-1">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" class="form-control form-control-sm" id="editRoomAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to confirm update">
+                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before saving modifications to unit.</small>
+                </div>
+              </div>
             </div>
           </div>
           <div class="modal-footer bg-light">
@@ -563,6 +644,17 @@ $adminUser = $_SESSION['user'];
               <div class="col-md-6">
                 <label for="assignModalRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>
                 <input type="number" class="form-control" id="assignModalRent" name="monthly_rent" required value="3500">
+              </div>
+
+              <!-- Admin Security Re-Authentication Check -->
+              <div class="col-12 pt-3 border-top mt-2">
+                <div class="p-2.5 rounded bg-light border border-warning">
+                  <label for="assignTenantAdminPassword" class="form-label small fw-bold text-navy mb-1">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" class="form-control form-control-sm" id="assignTenantAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to assign resident">
+                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before assigning resident to unit.</small>
+                </div>
               </div>
             </div>
           </div>

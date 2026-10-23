@@ -124,7 +124,15 @@ if ($method === 'GET') {
         }
 
         try {
+            $pdo->beginTransaction();
+
             if ($roomId > 0) {
+                // Find unit code if not provided
+                if (empty($unitCode)) {
+                    $uStmt = $pdo->prepare("SELECT unit_code FROM rooms WHERE id = ? FOR UPDATE");
+                    $uStmt->execute([$roomId]);
+                    $unitCode = $uStmt->fetchColumn();
+                }
                 $stmt = $pdo->prepare("UPDATE rooms SET status = ? WHERE id = ?");
                 $stmt->execute([$newStatus, $roomId]);
             } else {
@@ -132,8 +140,22 @@ if ($method === 'GET') {
                 $stmt->execute([$newStatus, $unitCode]);
             }
 
-            echo json_encode(['success' => true, 'message' => "Room status updated to {$newStatus}."]);
+            // If marked available or maintenance, unassign tenant and mark inactive
+            if (!empty($unitCode) && ($newStatus === 'available' || $newStatus === 'maintenance')) {
+                $pdo->prepare("
+                    UPDATE users 
+                    SET lease_status = 'inactive', unit_code = NULL 
+                    WHERE unit_code = ? AND role = 'tenant' AND lease_status = 'active'
+                ")->execute([$unitCode]);
+            }
+
+            $pdo->commit();
+
+            echo json_encode(['success' => true, 'message' => "Room status updated to {$newStatus}. Tenant roster synchronized."]);
         } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }

@@ -219,15 +219,15 @@ $firstName = explode(' ', trim($user['full_name']))[0];
     <?php endif; ?>
 
     <!-- Welcome Header Card -->
-    <div class="ebh-card p-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);">
+    <div class="ebh-card p-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #faf9f6 100%);">
       <div class="row align-items-center g-3">
         <div class="col-md-8">
-          <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary bg-opacity-10 text-primary small fw-bold mb-2">
-            <i class="bi bi-patch-check-fill"></i> Verified Resident
+          <div class="d-inline-flex align-items-center gap-2 px-2.5 py-0.5 rounded-pill bg-light border text-navy small fw-semibold mb-2" style="font-size:0.75rem;">
+            <i class="bi bi-patch-check-fill text-primary"></i> Verified Resident &bull; Unit <?= htmlspecialchars($user['unit_code']) ?>
           </div>
-          <h3 class="fw-bold text-navy mb-1">Welcome back, <?= htmlspecialchars($firstName) ?>!</h3>
+          <h2 class="fw-bold text-navy mb-1" style="font-size: 1.65rem; letter-spacing: -0.02em;">Welcome back, <?= htmlspecialchars($firstName) ?></h2>
           <p class="text-muted mb-0 small">
-            Unit <?= htmlspecialchars($user['unit_code']) ?> (<?= htmlspecialchars($user['room_type'] ?? 'Boarding Rental') ?>) &bull; Soldiers Village, Pasig City. Bills excluded (shouldered by tenant).
+            <?= htmlspecialchars($user['room_type'] ?? 'Boarding Rental') ?> &bull; Soldiers Village, Pasig City. Electricity &amp; water shouldered by tenant.
           </p>
         </div>
         <div class="col-md-4 text-md-end">
@@ -242,11 +242,11 @@ $firstName = explode(' ', trim($user['full_name']))[0];
       <!-- Left Column: Current Bill & Payment History -->
       <div class="col-lg-8">
         <!-- Current Month Bill Card -->
-        <div class="ebh-card mb-4 border-primary">
-          <div class="ebh-card-header bg-navy text-white d-flex justify-content-between align-items-center">
-            <div class="text-white">
-              <h6 class="fw-bold text-white mb-0"><i class="bi bi-calendar2-check-fill me-2 text-info"></i> Current Statement: <?= date('F Y') ?></h6>
-              <small class="text-white-50">Monthly Room Rental Statement</small>
+        <div class="ebh-card mb-4">
+          <div class="ebh-card-header d-flex justify-content-between align-items-center" style="background: #faf9f6; border-bottom: 1px solid var(--color-border);">
+            <div>
+              <h6 class="fw-bold text-navy mb-0"><i class="bi bi-calendar2-check-fill me-2 text-primary"></i> Statement: <?= date('F Y') ?></h6>
+              <small class="text-muted">Monthly Room Rental Statement</small>
             </div>
             <?= $statementBadge ?>
           </div>

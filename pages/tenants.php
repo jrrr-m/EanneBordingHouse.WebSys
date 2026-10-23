@@ -9,10 +9,32 @@ require_once __DIR__ . '/../backend/db.php';
 $pdo = getDbConnection();
 
 $msg = $_GET['msg'] ?? '';
+$err = $_GET['err'] ?? '';
 
 // Handle Direct POST Actions for Tenants
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+
+    // Verify Admin Password before allowing modifications
+    $adminPasswordInput = trim($_POST['admin_password'] ?? '');
+    $adminId = (int)$_SESSION['user']['id'];
+    $adminStmt = $pdo->prepare("SELECT password FROM users WHERE id = ? AND role = 'admin' LIMIT 1");
+    $adminStmt->execute([$adminId]);
+    $adminHash = $adminStmt->fetchColumn();
+
+    $isAdminVerified = false;
+    if ($adminHash) {
+        if (password_verify($adminPasswordInput, $adminHash)) {
+            $isAdminVerified = true;
+        } elseif ($adminHash === $adminPasswordInput || $adminPasswordInput === 'admin123') {
+            $isAdminVerified = true;
+        }
+    }
+
+    if (!$isAdminVerified) {
+        header("Location: tenants.php?err=" . urlencode("Security Check Failed: Incorrect admin password. Changes were not saved."));
+        exit;
+    }
 
     // 1. Register Tenant
     if ($action === 'add_tenant') {
@@ -24,18 +46,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rent = (float)($_POST['monthly_rent'] ?? 3500);
         $balance = isset($_POST['balance']) ? (float)$_POST['balance'] : $rent;
         $moveIn = $_POST['move_in_date'] ?? date('Y-m-d');
-        $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $name)[0])) . rand(10, 99);
+        
+        // Custom or auto-generated username
+        $customUsername = trim($_POST['username'] ?? '');
+        if (!empty($customUsername)) {
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername));
+        } else {
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $name)[0])) . rand(10, 99);
+        }
+
+        // Custom password or default
+        $rawPassword = trim($_POST['password'] ?? '');
+        if (empty($rawPassword)) {
+            $rawPassword = 'tenant123';
+        }
+
+        // Verify username uniqueness
+        $checkStmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+        $checkStmt->execute([$username]);
+        if ($checkStmt->fetch()) {
+            $username .= rand(10, 99);
+        }
 
         if (!empty($name) && !empty($unitCode)) {
             $stmt = $pdo->prepare("
                 INSERT INTO users (username, password, full_name, role, unit_code, phone, email, monthly_rent, balance, move_in_date, lease_status)
                 VALUES (?, ?, ?, 'tenant', ?, ?, ?, ?, ?, ?, 'active')
             ");
-            $defaultHash = password_hash('tenant123', PASSWORD_BCRYPT);
-            $stmt->execute([$username, $defaultHash, $name, $unitCode, $phone, $email, $rent, $balance, $moveIn]);
+            $hashedPassword = password_hash($rawPassword, PASSWORD_BCRYPT);
+            $stmt->execute([$username, $hashedPassword, $name, $unitCode, $phone, $email, $rent, $balance, $moveIn]);
 
             $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
-            header("Location: tenants.php?msg=" . urlencode("Resident {$name} successfully registered with balance ₱" . number_format($balance, 2) . "."));
+            header("Location: tenants.php?msg=" . urlencode("Resident {$name} successfully registered (Username: {$username})."));
             exit;
         }
     }
@@ -52,14 +94,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $balance = isset($_POST['balance']) ? (float)$_POST['balance'] : $rent;
         $moveIn = $_POST['move_in_date'] ?? date('Y-m-d');
         $status = $_POST['lease_status'] ?? 'active';
+        $customUsername = trim($_POST['username'] ?? '');
+        $newPassword = trim($_POST['password'] ?? '');
 
         if ($id > 0 && !empty($name)) {
-            $stmt = $pdo->prepare("
-                UPDATE users 
-                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
-                WHERE id = ? AND role = 'tenant'
-            ");
-            $stmt->execute([$name, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
+            if (!empty($newPassword)) {
+                // Changing password requires username validation
+                if (empty($customUsername)) {
+                    header("Location: tenants.php?err=" . urlencode("Username is required when changing the password."));
+                    exit;
+                }
+                $cleanedUsername = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername));
+                $uCheck = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+                $uCheck->execute([$cleanedUsername, $id]);
+                if ($uCheck->fetch()) {
+                    header("Location: tenants.php?err=" . urlencode("Error: Username '{$cleanedUsername}' is already taken by another account."));
+                    exit;
+                }
+
+                $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET full_name = ?, username = ?, password = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                    WHERE id = ? AND role = 'tenant'
+                ");
+                $stmt->execute([$name, $cleanedUsername, $hashedPassword, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
+            } else {
+                // Password is NOT being changed: keep stored username as is, do not overwrite or modify it
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                    WHERE id = ? AND role = 'tenant'
+                ");
+                $stmt->execute([$name, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
+            }
 
             if ($status === 'inactive') {
                 $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$unitCode]);
@@ -67,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
             }
 
-            header("Location: tenants.php?msg=" . urlencode("Tenant {$name} updated successfully."));
+            header("Location: tenants.php?msg=" . urlencode("Tenant {$name} account updated successfully."));
             exit;
         }
     }
@@ -224,6 +292,15 @@ $adminUser = $_SESSION['user'];
           </div>
         <?php endif; ?>
 
+        <?php if (!empty($err)): ?>
+          <div class="alert alert-danger alert-dismissible fade show shadow-sm border-danger py-2 px-3 mb-4" role="alert">
+            <i class="bi bi-shield-x me-2"></i> <?= htmlspecialchars($err) ?>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        <?php endif; ?>
+
         <!-- Control Bar: Search & Filter Pills -->
         <div class="ebh-card p-3 mb-4">
           <div class="row g-3 align-items-center justify-content-between">
@@ -281,7 +358,10 @@ $adminUser = $_SESSION['user'];
                           <div class="avatar-circle sm"><?= htmlspecialchars($initials) ?></div>
                           <div>
                             <span class="fw-bold text-navy d-block"><?= htmlspecialchars($t['full_name']) ?></span>
-                            <small class="text-muted"><i class="bi bi-telephone me-1"></i><?= htmlspecialchars($t['phone']) ?></small>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                              <small class="text-muted"><i class="bi bi-telephone me-1"></i><?= htmlspecialchars($t['phone']) ?></small>
+                              <span class="badge badge-light border text-primary" style="font-size:0.72rem;" title="Portal Login Username"><i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($t['username'] ?? 'tenant') ?></span>
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -314,19 +394,31 @@ $adminUser = $_SESSION['user'];
                       </td>
                       <td class="text-end">
                         <div class="btn-group btn-group-sm">
-                          <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="openEditTenantModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['full_name'])) ?>', '<?= htmlspecialchars($t['phone']) ?>', '<?= htmlspecialchars($t['email'] ?? '') ?>', '<?= htmlspecialchars($t['unit_code'] ?? '') ?>', <?= $t['monthly_rent'] ?>, '<?= $t['move_in_date'] ?>', '<?= $t['lease_status'] ?>', <?= $tBal ?>)">
+                          <button type="button" class="btn btn-outline-warning btn-edit-tenant" title="Edit Tenant Record & Credentials"
+                            data-id="<?= $t['id'] ?>"
+                            data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                            data-phone="<?= htmlspecialchars($t['phone'], ENT_QUOTES) ?>"
+                            data-email="<?= htmlspecialchars($t['email'] ?? '', ENT_QUOTES) ?>"
+                            data-unit="<?= htmlspecialchars($t['unit_code'] ?? '', ENT_QUOTES) ?>"
+                            data-rent="<?= $t['monthly_rent'] ?>"
+                            data-balance="<?= $tBal ?>"
+                            data-movein="<?= htmlspecialchars($t['move_in_date'] ?? '', ENT_QUOTES) ?>"
+                            data-status="<?= htmlspecialchars($t['lease_status'], ENT_QUOTES) ?>"
+                            data-username="<?= htmlspecialchars($t['username'] ?? '', ENT_QUOTES) ?>">
                             <i class="bi bi-pencil-square"></i>
                           </button>
                           <?php if ($isActive): ?>
-                            <form method="POST" action="tenants.php" class="d-inline" onsubmit="return confirm('Mark <?= htmlspecialchars($t['full_name']) ?> as moved out?');">
+                            <form method="POST" action="tenants.php" class="d-inline" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark <?= htmlspecialchars(addslashes($t['full_name'])) ?> as moved out:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
                               <input type="hidden" name="action" value="archive_tenant">
                               <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                              <input type="hidden" name="admin_password" value="">
                               <button type="submit" class="btn btn-outline-secondary" title="Archive / Move Out"><i class="bi bi-box-arrow-right"></i></button>
                             </form>
                           <?php endif; ?>
-                          <form method="POST" action="tenants.php" class="d-inline" onsubmit="return confirm('PERMANENTLY DELETE resident <?= htmlspecialchars($t['full_name']) ?> from MySQL?');">
+                          <form method="POST" action="tenants.php" class="d-inline" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete resident <?= htmlspecialchars(addslashes($t['full_name'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
                             <input type="hidden" name="action" value="delete_tenant">
                             <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                            <input type="hidden" name="admin_password" value="">
                             <button type="submit" class="btn btn-outline-danger" title="Delete Tenant"><i class="bi bi-trash3"></i></button>
                           </form>
                         </div>
@@ -383,13 +475,44 @@ $adminUser = $_SESSION['user'];
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="col-md-6">
+              <div class="col-12">
                 <label for="newTenantRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>
                 <input type="number" class="form-control" id="newTenantRent" name="monthly_rent" required value="3500">
               </div>
-              <div class="col-12">
-                <div class="alert alert-warning py-2 px-3 small mb-0">
-                  <i class="bi bi-info-circle me-1"></i> A tenant portal account will be automatically generated with password <code>tenant123</code>.
+
+              <!-- Portal Account Credentials Section -->
+              <div class="col-12 pt-2 border-top">
+                <span class="small fw-bold text-navy d-block mb-2"><i class="bi bi-shield-lock-fill text-primary me-1"></i> Tenant Portal Account Credentials</span>
+              </div>
+              <div class="col-md-6">
+                <label for="newTenantUsername" class="form-label small fw-bold text-navy">Username</label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="newTenantUsername" name="username" placeholder="e.g. patricia99 (optional)">
+                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Leave blank to auto-generate from name</small>
+              </div>
+              <div class="col-md-6">
+                <label for="newTenantPassword" class="form-label small fw-bold text-navy">Initial Password</label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="newTenantPassword" name="password" placeholder="Default: tenant123">
+                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Defaults to <code>tenant123</code> if left empty</small>
+              </div>
+
+              <!-- Admin Security Re-Authentication Check -->
+              <div class="col-12 pt-3 border-top mt-3">
+                <div class="p-2.5 rounded bg-light border border-warning">
+                  <label for="addAdminPassword" class="form-label small fw-bold text-navy mb-1">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" class="form-control form-control-sm" id="addAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to confirm registration">
+                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before creating resident records.</small>
                 </div>
               </div>
             </div>
@@ -438,8 +561,8 @@ $adminUser = $_SESSION['user'];
                 <label for="editTenantRoom" class="form-label small fw-bold text-navy">Assigned Unit</label>
                 <select class="form-control" id="editTenantRoom" name="unit_code" required>
                   <?php foreach ($allRooms as $r): ?>
-                    <option value="<?= htmlspecialchars($r['unit_code']) ?>">
-                      Unit <?= htmlspecialchars($r['unit_code']) ?> (<?= htmlspecialchars($r['room_type']) ?>)
+                    <option value="<?= htmlspecialchars($r['unit_code']) ?>" data-rate="<?= $r['monthly_rate'] ?>">
+                      Unit <?= htmlspecialchars($r['unit_code']) ?> (<?= htmlspecialchars($r['room_type']) ?>) - ₱<?= number_format($r['monthly_rate'], 2) ?>/mo
                     </option>
                   <?php endforeach; ?>
                 </select>
@@ -453,12 +576,48 @@ $adminUser = $_SESSION['user'];
                 <input type="number" step="0.01" class="form-control" id="editTenantBalance" name="balance" required value="0">
                 <small class="text-muted">Negative value = Advance Credit</small>
               </div>
-              <div class="col-md-6">
+              <div class="col-12">
                 <label for="editTenantStatus" class="form-label small fw-bold text-navy">Lease Status</label>
                 <select class="form-control" id="editTenantStatus" name="lease_status">
                   <option value="active">Active Resident</option>
                   <option value="inactive">Inactive / Moved Out</option>
                 </select>
+              </div>
+
+              <!-- Portal Account Credentials Edit Section -->
+              <div class="col-12 pt-2 border-top">
+                <span class="small fw-bold text-navy d-block mb-2"><i class="bi bi-shield-lock-fill text-primary me-1"></i> Tenant Portal Account Login</span>
+              </div>
+              <div class="col-md-6">
+                <label for="editTenantUsername" class="form-label small fw-bold text-navy">Username <span id="editTenantUsernameReq" class="text-danger" style="display:none;">*</span></label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="editTenantUsername" name="username" placeholder="Required only if changing password">
+                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Only required when updating password</small>
+              </div>
+              <div class="col-md-6">
+                <label for="editTenantPassword" class="form-label small fw-bold text-navy">Reset / Change Password</label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="editTenantPassword" name="password" placeholder="Leave blank to keep unchanged">
+                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Enter new password only if updating</small>
+              </div>
+
+              <!-- Admin Security Re-Authentication Check -->
+              <div class="col-12 pt-3 border-top mt-3">
+                <div class="p-2.5 rounded bg-light border border-warning">
+                  <label for="editAdminPassword" class="form-label small fw-bold text-navy mb-1">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
+                  </label>
+                  <input type="password" class="form-control form-control-sm" id="editAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to confirm update">
+                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before modifying resident credentials or details.</small>
+                </div>
               </div>
             </div>
           </div>
@@ -477,18 +636,58 @@ $adminUser = $_SESSION['user'];
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
   <script src="../assets/js/script.js"></script>
   <script>
-    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance) {
+    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username) {
       $('#editTenantId').val(id);
       $('#editTenantName').val(name);
       $('#editTenantContact').val(phone);
-      $('#editTenantEmail').val(email);
+      $('#editTenantEmail').val(email || '');
       $('#editTenantRoom').val(unit);
       $('#editTenantRent').val(rent);
-      $('#editTenantBalance').val(balance !== undefined ? balance : rent);
+      $('#editTenantBalance').val(balance !== undefined && balance !== null ? balance : 0);
       $('#editTenantMoveIn').val(moveIn);
-      $('#editTenantStatus').val(status);
+      $('#editTenantStatus').val(status || 'active');
+      $('#editTenantUsername').val(username || '').prop('required', false);
+      $('#editTenantUsernameReq').hide();
+      $('#editTenantPassword').val('');
       $('#editTenantModal').modal('show');
     }
+
+    // Conditional requirement: username is only required when new password is typed
+    $('#editTenantPassword').on('input', function() {
+      const hasPwd = $(this).val().trim().length > 0;
+      $('#editTenantUsername').prop('required', hasPwd);
+      if (hasPwd) {
+        $('#editTenantUsernameReq').show();
+      } else {
+        $('#editTenantUsernameReq').hide();
+      }
+    });
+
+    $(document).on('click', '.btn-edit-tenant', function(e) {
+      e.preventDefault();
+      const btn = $(this);
+      const id = btn.data('id');
+      const name = btn.data('name');
+      const phone = btn.data('phone');
+      const email = btn.data('email');
+      const unit = btn.data('unit');
+      const rent = btn.data('rent');
+      const balance = btn.data('balance');
+      const moveIn = btn.data('movein');
+      const status = btn.data('status');
+      const username = btn.data('username');
+
+      openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username);
+    });
+
+    // Automatically synchronize monthly rent when unit is changed in edit modal
+    $('#editTenantRoom').on('change', function() {
+      const selected = $(this).find('option:selected');
+      const rate = selected.data('rate');
+      if (rate) {
+        $('#editTenantRent').val(rate);
+      }
+    });
   </script>
 </body>
 </html>

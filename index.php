@@ -419,16 +419,16 @@ if ($pdo) {
               <form id="contactViewingForm">
                 <div class="mb-3">
                   <label class="form-label small fw-semibold text-navy">Your Full Name *</label>
-                  <input type="text" class="form-control" required placeholder="e.g. Juan Santos">
+                  <input type="text" class="form-control" id="contactFullName" required placeholder="e.g. Juan Santos">
                 </div>
                 <div class="row g-3 mb-3">
                   <div class="col-md-6">
                     <label class="form-label small fw-semibold text-navy">Mobile Number *</label>
-                    <input type="tel" class="form-control" required placeholder="09XX-XXX-XXXX">
+                    <input type="tel" class="form-control" id="contactMobile" required placeholder="09XX-XXX-XXXX">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label small fw-semibold text-navy">Preferred Accommodation</label>
-                    <select class="form-select">
+                    <select class="form-select" id="contactRoomType">
                       <option value="Boarding House Rental (₱3,500)">Boarding House Rental (₱3,500/mo)</option>
                       <option value="Private Boarding House (₱8,000)">Private Boarding House (₱8,000/mo)</option>
                       <option value="General Inquiry / Both">General Inquiry / Either</option>
@@ -437,11 +437,11 @@ if ($pdo) {
                 </div>
                 <div class="mb-3">
                   <label class="form-label small fw-semibold text-navy">Preferred Viewing Date *</label>
-                  <input type="date" class="form-control" required value="2026-10-15">
+                  <input type="date" class="form-control" id="contactPreferredDate" required value="<?= date('Y-m-d', strtotime('+1 day')) ?>">
                 </div>
                 <div class="mb-3">
                   <label class="form-label small fw-semibold text-navy">Questions or Notes</label>
-                  <textarea class="form-control" rows="3" placeholder="Target move-in date or questions..."></textarea>
+                  <textarea class="form-control" id="contactNotes" rows="3" placeholder="Target move-in date or questions..."></textarea>
                 </div>
                 <button type="submit" class="btn btn-ebh-primary w-100 py-2 fw-semibold">
                   <i class="bi bi-send-fill me-1"></i> Send Viewing Request

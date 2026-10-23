@@ -23,20 +23,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $unitCode = str_replace('Unit ', '', $rawUnit);
         $rent = (float)($_POST['monthly_rent'] ?? 3500);
         $moveIn = $_POST['move_in_date'] ?? date('Y-m-d');
-        $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $name)[0])) . rand(10, 99);
+        
+        $customUsername = trim($_POST['username'] ?? '');
+        if (!empty($customUsername)) {
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername));
+        } else {
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $name)[0])) . rand(10, 99);
+        }
+
+        $rawPassword = trim($_POST['password'] ?? '');
+        if (empty($rawPassword)) {
+            $rawPassword = 'tenant123';
+        }
+
+        // Verify username uniqueness
+        $checkStmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+        $checkStmt->execute([$username]);
+        if ($checkStmt->fetch()) {
+            $username .= rand(10, 99);
+        }
 
         if (!empty($name) && !empty($unitCode)) {
             $stmt = $pdo->prepare("
-                INSERT INTO users (username, password, full_name, role, unit_code, phone, monthly_rent, move_in_date, lease_status)
-                VALUES (?, ?, ?, 'tenant', ?, ?, ?, ?, 'active')
+                INSERT INTO users (username, password, full_name, role, unit_code, phone, monthly_rent, balance, move_in_date, lease_status)
+                VALUES (?, ?, ?, 'tenant', ?, ?, ?, ?, ?, 'active')
             ");
-            $defaultHash = password_hash('tenant123', PASSWORD_BCRYPT);
-            $stmt->execute([$username, $defaultHash, $name, $unitCode, $phone, $rent, $moveIn]);
+            $hashedPassword = password_hash($rawPassword, PASSWORD_BCRYPT);
+            $stmt->execute([$username, $hashedPassword, $name, $unitCode, $phone, $rent, $rent, $moveIn]);
 
             // Mark room occupied
             $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
 
-            header("Location: admin-dashboard.php?msg=" . urlencode("Resident {$name} successfully registered and assigned to Unit {$unitCode}."));
+            header("Location: admin-dashboard.php?msg=" . urlencode("Resident {$name} successfully registered (Username: {$username}) and assigned to Unit {$unitCode}."));
             exit;
         }
     }
@@ -99,11 +117,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    // Update Viewing Request Status from Dashboard
+    if ($action === 'update_viewing_status') {
+        $vId = (int)($_POST['viewing_id'] ?? 0);
+        $vStatus = $_POST['status'] ?? 'confirmed';
+        if ($vId > 0 && in_array($vStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
+            $pdo->prepare("UPDATE viewing_requests SET status = ? WHERE id = ?")->execute([$vStatus, $vId]);
+            header("Location: admin-dashboard.php?msg=" . urlencode("Viewing request #{$vId} updated to {$vStatus}."));
+            exit;
+        }
+    }
 }
 
 if (isset($_GET['msg'])) {
     $toastMsg = $_GET['msg'];
 }
+
+// Ensure viewing_requests table exists
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS `viewing_requests` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `user_id` INT NULL,
+        `user_name` VARCHAR(100) NOT NULL,
+        `contact_phone` VARCHAR(50) NOT NULL,
+        `unit_or_type` VARCHAR(100) NOT NULL,
+        `preferred_date` DATE NOT NULL,
+        `notes` TEXT NULL,
+        `status` ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+");
 
 // 1. Fetch KPI Metrics
 $totalUnits = (int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn();
@@ -114,6 +158,11 @@ $monthlyTarget = (float)$pdo->query("SELECT COALESCE(SUM(monthly_rate), 0) FROM 
 $pendingQueueCount = (int)$pdo->query("SELECT COUNT(*) FROM payments WHERE status = 'pending'")->fetchColumn();
 $openTicketsCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_tickets WHERE status = 'open'")->fetchColumn();
 $occupancyPercent = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100) : 0;
+
+// Viewing Requests Count & List
+$viewingRequestsStmt = $pdo->query("SELECT * FROM viewing_requests ORDER BY id DESC LIMIT 15");
+$viewingRequests = $viewingRequestsStmt->fetchAll();
+$pendingViewingsCount = (int)$pdo->query("SELECT COUNT(*) FROM viewing_requests WHERE status = 'pending'")->fetchColumn();
 
 // 2. Fetch Category Breakdown
 $bhTotal = (int)$pdo->query("SELECT COUNT(*) FROM rooms WHERE room_type LIKE '%Boarding%' AND room_type NOT LIKE '%Private%'")->fetchColumn();
@@ -278,16 +327,21 @@ $adminUser = $_SESSION['user'];
         <?php endif; ?>
 
         <!-- Welcome Alert Banner -->
-        <div class="alert alert-primary bg-white border-primary shadow-sm rounded-3 mb-4 d-flex flex-wrap align-items-center justify-content-between p-3">
-          <div class="d-flex align-items-center gap-3">
-            <div class="kpi-icon blue"><i class="bi bi-building-check"></i></div>
-            <div>
-              <h6 class="fw-bold text-navy mb-1">Boarding House Operations Active</h6>
-              <p class="small text-muted mb-0"><?= date('F Y') ?> rent collection cycle open. <?= $pendingQueueCount ?> tenant proofs need review. Utility bills shouldered by tenants.</p>
+        <div class="ebh-card p-4 mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #faf9f6 100%);">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+              <div class="kpi-icon blue"><i class="bi bi-building-check"></i></div>
+              <div>
+                <div class="d-inline-flex align-items-center gap-2 px-2 py-0.5 rounded-pill bg-light text-navy small fw-bold mb-1 border" style="font-size: 0.72rem;">
+                  <span class="badge-dot bg-success" style="width:6px;height:6px;border-radius:50%;display:inline-block;background:#16a34a;"></span> Operations Normal &bull; Pasig Compound
+                </div>
+                <h6 class="fw-bold text-navy mb-1" style="font-size: 1.05rem;">Rent Collection &amp; Tenancy Active</h6>
+                <p class="small text-muted mb-0"><?= date('F Y') ?> billing cycle open. <?= $pendingQueueCount ?> tenant proofs awaiting review. Utility bills shouldered by tenants.</p>
+              </div>
             </div>
-          </div>
-          <div class="mt-2 mt-sm-0">
-            <a href="payments.php" class="btn btn-sm btn-ebh-accent fw-bold"><i class="bi bi-check-all me-1"></i> Review Payments (<?= $pendingQueueCount ?>)</a>
+            <div class="d-flex align-items-center gap-2">
+              <a href="payments.php" class="btn btn-sm btn-ebh-primary"><i class="bi bi-check2-all me-1"></i> Review Payments (<?= $pendingQueueCount ?>)</a>
+            </div>
           </div>
         </div>
 
@@ -407,6 +461,110 @@ $adminUser = $_SESSION['user'];
               </div>
             </div>
 
+            <!-- Viewing Requests / Schedule a Viewing Roster -->
+            <div class="ebh-card mb-4" id="viewingsSection">
+              <div class="ebh-card-header d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="fw-bold text-navy mb-0"><i class="bi bi-calendar2-check-fill me-2 text-primary"></i> Viewing Schedule Requests</h6>
+                  <small class="text-muted">In-person room visits scheduled by prospective tenants &amp; users</small>
+                </div>
+                <span class="badge <?= $pendingViewingsCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white' ?>"><?= $pendingViewingsCount ?> Pending</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-ebh table-hover mb-0" id="adminViewingsTable">
+                  <thead>
+                    <tr>
+                      <th>Prospective Resident</th>
+                      <th>Contact (SMS)</th>
+                      <th>Unit / Type</th>
+                      <th>Target Date</th>
+                      <th>Status</th>
+                      <th class="text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if (empty($viewingRequests)): ?>
+                      <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                          <i class="bi bi-calendar-x text-muted fs-3 d-block mb-1"></i>
+                          No viewing schedule requests received yet.
+                        </td>
+                      </tr>
+                    <?php else: ?>
+                      <?php foreach ($viewingRequests as $vr): ?>
+                        <?php
+                          $vInitials = strtoupper(substr($vr['user_name'], 0, 1) . substr(strrchr($vr['user_name'], ' ') ?: '', 1, 1));
+                          if (!$vInitials) $vInitials = 'VR';
+                          $vStatus = $vr['status'] ?? 'pending';
+                        ?>
+                        <tr class="<?= $vStatus === 'pending' ? 'table-warning' : '' ?>" id="viewing-row-<?= $vr['id'] ?>">
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="avatar-circle sm bg-light border text-navy"><?= htmlspecialchars($vInitials) ?></div>
+                              <div>
+                                <strong class="text-navy d-block"><?= htmlspecialchars($vr['user_name']) ?></strong>
+                                <?php if (!empty($vr['notes'])): ?>
+                                  <small class="text-muted d-block text-truncate" style="max-width:200px;" title="<?= htmlspecialchars($vr['notes']) ?>"><i class="bi bi-chat-left-text me-1"></i><?= htmlspecialchars($vr['notes']) ?></small>
+                                <?php endif; ?>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <a href="tel:<?= htmlspecialchars($vr['contact_phone']) ?>" class="fw-semibold text-navy text-decoration-none">
+                              <i class="bi bi-telephone text-primary me-1"></i><?= htmlspecialchars($vr['contact_phone']) ?>
+                            </a>
+                          </td>
+                          <td>
+                            <span class="badge badge-light border text-navy"><i class="bi bi-door-open me-1"></i><?= htmlspecialchars($vr['unit_or_type']) ?></span>
+                          </td>
+                          <td>
+                            <small class="fw-semibold text-navy d-block"><i class="bi bi-calendar-event text-primary me-1"></i><?= date('M j, Y', strtotime($vr['preferred_date'])) ?></small>
+                            <small class="text-muted" style="font-size:0.75rem;">Submitted <?= date('M j', strtotime($vr['created_at'])) ?></small>
+                          </td>
+                          <td>
+                            <?php if ($vStatus === 'pending'): ?>
+                              <span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span>
+                            <?php elseif ($vStatus === 'confirmed'): ?>
+                              <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Confirmed</span>
+                            <?php elseif ($vStatus === 'completed'): ?>
+                              <span class="badge badge-secondary"><i class="bi bi-check-all"></i> Completed</span>
+                            <?php else: ?>
+                              <span class="badge badge-danger"><?= htmlspecialchars(ucfirst($vStatus)) ?></span>
+                            <?php endif; ?>
+                          </td>
+                          <td class="text-end">
+                            <?php if ($vStatus === 'pending'): ?>
+                              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Confirm viewing visit for <?= htmlspecialchars(addslashes($vr['user_name'])) ?>?');">
+                                <input type="hidden" name="action" value="update_viewing_status">
+                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
+                                <input type="hidden" name="status" value="confirmed">
+                                <button type="submit" class="btn btn-sm btn-primary" title="Confirm Appointment"><i class="bi bi-check-lg"></i> Confirm</button>
+                              </form>
+                              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Cancel this viewing request?');">
+                                <input type="hidden" name="action" value="update_viewing_status">
+                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
+                                <input type="hidden" name="status" value="cancelled">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel"><i class="bi bi-x-lg"></i></button>
+                              </form>
+                            <?php elseif ($vStatus === 'confirmed'): ?>
+                              <form method="POST" action="admin-dashboard.php" class="d-inline">
+                                <input type="hidden" name="action" value="update_viewing_status">
+                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
+                                <input type="hidden" name="status" value="completed">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed"><i class="bi bi-check-all"></i> Done</button>
+                              </form>
+                            <?php else: ?>
+                              <span class="text-muted small">&mdash;</span>
+                            <?php endif; ?>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <!-- Unit Occupancy Status -->
             <div class="ebh-card">
               <div class="ebh-card-header">
@@ -468,26 +626,41 @@ $adminUser = $_SESSION['user'];
               <div class="ebh-card-header">
                 <h6 class="fw-bold text-navy mb-0"><i class="bi bi-lightning-charge-fill me-1 text-warning"></i> Quick Operations</h6>
               </div>
-              <div class="ebh-card-body d-flex flex-column gap-2">
-                <button type="button" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2" data-toggle="modal" data-target="#addTenantModal">
-                  <span><i class="bi bi-person-plus-fill me-2 text-primary"></i> Register New Tenant</span>
-                  <i class="bi bi-chevron-right text-muted small"></i>
+              <div class="ebh-card-body p-2 d-flex flex-column gap-1">
+                <button type="button" class="btn text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 border-0 bg-transparent quick-op-item" data-toggle="modal" data-target="#addTenantModal">
+                  <span class="d-flex align-items-center gap-2.5">
+                    <span class="kpi-icon sm navy" style="width:32px;height:32px;font-size:1rem;"><i class="bi bi-person-plus-fill"></i></span>
+                    <span class="fw-semibold text-navy small">Register New Tenant</span>
+                  </span>
+                  <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
                 </button>
-                <button type="button" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2" data-toggle="modal" data-target="#addRoomModal">
-                  <span><i class="bi bi-door-plus-fill me-2 text-primary"></i> Add Rental Unit</span>
-                  <i class="bi bi-chevron-right text-muted small"></i>
+                <button type="button" class="btn text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 border-0 bg-transparent quick-op-item" data-toggle="modal" data-target="#addRoomModal">
+                  <span class="d-flex align-items-center gap-2.5">
+                    <span class="kpi-icon sm blue" style="width:32px;height:32px;font-size:1rem;"><i class="bi bi-door-plus-fill"></i></span>
+                    <span class="fw-semibold text-navy small">Add Rental Unit</span>
+                  </span>
+                  <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
                 </button>
-                <a href="reports.php" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2">
-                  <span><i class="bi bi-printer-fill me-2 text-primary"></i> Print Monthly Collection Sheet</span>
-                  <i class="bi bi-chevron-right text-muted small"></i>
+                <a href="reports.php" class="btn text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 border-0 bg-transparent quick-op-item">
+                  <span class="d-flex align-items-center gap-2.5">
+                    <span class="kpi-icon sm accent" style="width:32px;height:32px;font-size:1rem;"><i class="bi bi-printer-fill"></i></span>
+                    <span class="fw-semibold text-navy small">Print Collection Sheet</span>
+                  </span>
+                  <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
                 </a>
-                <a href="tickets.php" class="btn btn-outline-danger text-start d-flex align-items-center justify-content-between p-2">
-                  <span><i class="bi bi-tools me-2 text-danger"></i> Maintenance Tickets</span>
-                  <span class="badge badge-danger text-white"><?= $openTicketsCount ?></span>
+                <a href="tickets.php" class="btn text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 border-0 bg-transparent quick-op-item">
+                  <span class="d-flex align-items-center gap-2.5">
+                    <span class="kpi-icon sm danger" style="width:32px;height:32px;font-size:1rem;"><i class="bi bi-tools"></i></span>
+                    <span class="fw-semibold text-navy small">Maintenance Tickets</span>
+                  </span>
+                  <span class="badge-ebh <?= $openTicketsCount > 0 ? 'badge-urgent' : 'badge-verified' ?>" style="font-size:0.7rem;padding:0.2rem 0.55rem;"><?= $openTicketsCount ?></span>
                 </a>
-                <a href="payments.php" class="btn btn-outline-primary text-start d-flex align-items-center justify-content-between p-2">
-                  <span><i class="bi bi-cash-coin me-2 text-success"></i> Record Cash Payment</span>
-                  <i class="bi bi-chevron-right text-muted small"></i>
+                <a href="payments.php" class="btn text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 border-0 bg-transparent quick-op-item">
+                  <span class="d-flex align-items-center gap-2.5">
+                    <span class="kpi-icon sm navy" style="width:32px;height:32px;font-size:1rem;background:#ecfdf5;color:#059669;"><i class="bi bi-cash-coin"></i></span>
+                    <span class="fw-semibold text-navy small">Record Cash Payment</span>
+                  </span>
+                  <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
                 </a>
               </div>
             </div>
@@ -558,14 +731,34 @@ $adminUser = $_SESSION['user'];
                   <?php endforeach; ?>
                 </select>
               </div>
-              <div class="col-md-6">
+              <div class="col-12">
                 <label for="newTenantRent" class="form-label small fw-bold text-navy">Monthly Rent (₱)</label>
                 <input type="number" class="form-control" id="newTenantRent" name="monthly_rent" required value="3500">
               </div>
-              <div class="col-12">
-                <div class="alert alert-warning py-2 px-3 small mb-0">
-                  <i class="bi bi-info-circle me-1"></i> Default tenant portal password will be generated as <code>tenant123</code>.
+
+              <!-- Portal Account Credentials Section -->
+              <div class="col-12 pt-2 border-top">
+                <span class="small fw-bold text-navy d-block mb-2"><i class="bi bi-shield-lock-fill text-primary me-1"></i> Tenant Portal Account Credentials</span>
+              </div>
+              <div class="col-md-6">
+                <label for="newDashTenantUsername" class="form-label small fw-bold text-navy">Username</label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="newDashTenantUsername" name="username" placeholder="e.g. roberto22 (optional)">
                 </div>
+                <small class="text-muted" style="font-size:0.72rem;">Leave blank to auto-generate</small>
+              </div>
+              <div class="col-md-6">
+                <label for="newDashTenantPassword" class="form-label small fw-bold text-navy">Initial Password</label>
+                <div class="input-group input-group-sm">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                  </div>
+                  <input type="text" class="form-control" id="newDashTenantPassword" name="password" placeholder="Default: tenant123">
+                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Defaults to <code>tenant123</code> if blank</small>
               </div>
             </div>
           </div>
