@@ -48,6 +48,7 @@ try {
             `email` VARCHAR(100) NULL,
             `unit_code` VARCHAR(20) NULL,
             `monthly_rent` DECIMAL(10,2) DEFAULT 0.00,
+            `balance` DECIMAL(10,2) DEFAULT 0.00,
             `move_in_date` DATE NULL,
             `lease_status` ENUM('active', 'inactive') DEFAULT 'active',
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -61,6 +62,7 @@ try {
             `unit_code` VARCHAR(20) NOT NULL,
             `amount` DECIMAL(10,2) NOT NULL,
             `payment_method` VARCHAR(50) NOT NULL,
+            `payment_type` ENUM('rent', 'partial', 'advance') NOT NULL DEFAULT 'rent',
             `proof_image` VARCHAR(255) NULL,
             `proof_original_name` VARCHAR(255) NULL,
             `payment_date` DATETIME NOT NULL,

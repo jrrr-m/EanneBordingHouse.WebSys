@@ -77,6 +77,7 @@ try {
             'amount' => floatval($r['amount']),
             'amount_formatted' => '₱' . number_format($r['amount'], 2),
             'payment_method' => $r['payment_method'],
+            'payment_type' => $r['payment_type'] ?? 'rent',
             'proof_image' => $r['proof_image'],
             'has_proof' => !empty($r['proof_image']),
             'proof_original_name' => $r['proof_original_name'],

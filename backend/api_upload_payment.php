@@ -147,10 +147,25 @@ try {
         $tenantId = $userRow['id'];
     }
 
+    $paymentType = strtolower(trim($_POST['payment_type'] ?? 'rent'));
+    if (!in_array($paymentType, ['rent', 'partial', 'advance'])) {
+        $paymentType = 'rent';
+    }
+
+    // Safeguard: Advance payment is not allowed when tenant has an outstanding balance
+    if ($paymentType === 'advance' && $tenantId) {
+        $balStmt = $pdo->prepare("SELECT balance FROM users WHERE id = ?");
+        $balStmt->execute([$tenantId]);
+        $tenantBal = (float)$balStmt->fetchColumn();
+        if ($tenantBal > 0) {
+            $paymentType = 'partial';
+        }
+    }
+
     // 5. Insert Payment Record into MySQL
     $insertSql = "INSERT INTO `payments` 
-        (`reference_no`, `tenant_id`, `tenant_name`, `unit_code`, `amount`, `payment_method`, `proof_image`, `proof_original_name`, `payment_date`, `status`, `admin_notes`)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'pending', ?)";
+        (`reference_no`, `tenant_id`, `tenant_name`, `unit_code`, `amount`, `payment_method`, `payment_type`, `proof_image`, `proof_original_name`, `payment_date`, `status`, `admin_notes`)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'pending', ?)";
     
     $insertStmt = $pdo->prepare($insertSql);
     $insertStmt->execute([
@@ -160,6 +175,7 @@ try {
         $unitCode,
         $amount,
         $paymentMethod,
+        $paymentType,
         $proofImagePath,
         $originalFileName,
         $notes

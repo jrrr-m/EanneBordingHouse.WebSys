@@ -22,19 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rawUnit = trim($_POST['unit_code'] ?? '');
         $unitCode = str_replace('Unit ', '', $rawUnit);
         $rent = (float)($_POST['monthly_rent'] ?? 3500);
+        $balance = isset($_POST['balance']) ? (float)$_POST['balance'] : $rent;
         $moveIn = $_POST['move_in_date'] ?? date('Y-m-d');
         $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', explode(' ', $name)[0])) . rand(10, 99);
 
         if (!empty($name) && !empty($unitCode)) {
             $stmt = $pdo->prepare("
-                INSERT INTO users (username, password, full_name, role, unit_code, phone, email, monthly_rent, move_in_date, lease_status)
-                VALUES (?, ?, ?, 'tenant', ?, ?, ?, ?, ?, 'active')
+                INSERT INTO users (username, password, full_name, role, unit_code, phone, email, monthly_rent, balance, move_in_date, lease_status)
+                VALUES (?, ?, ?, 'tenant', ?, ?, ?, ?, ?, ?, 'active')
             ");
             $defaultHash = password_hash('tenant123', PASSWORD_BCRYPT);
-            $stmt->execute([$username, $defaultHash, $name, $unitCode, $phone, $email, $rent, $moveIn]);
+            $stmt->execute([$username, $defaultHash, $name, $unitCode, $phone, $email, $rent, $balance, $moveIn]);
 
             $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
-            header("Location: tenants.php?msg=" . urlencode("Resident {$name} successfully registered."));
+            header("Location: tenants.php?msg=" . urlencode("Resident {$name} successfully registered with balance ₱" . number_format($balance, 2) . "."));
             exit;
         }
     }
@@ -48,16 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rawUnit = trim($_POST['unit_code'] ?? '');
         $unitCode = str_replace('Unit ', '', $rawUnit);
         $rent = (float)($_POST['monthly_rent'] ?? 3500);
+        $balance = isset($_POST['balance']) ? (float)$_POST['balance'] : $rent;
         $moveIn = $_POST['move_in_date'] ?? date('Y-m-d');
         $status = $_POST['lease_status'] ?? 'active';
 
         if ($id > 0 && !empty($name)) {
             $stmt = $pdo->prepare("
                 UPDATE users 
-                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, move_in_date = ?, lease_status = ?
+                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
                 WHERE id = ? AND role = 'tenant'
             ");
-            $stmt->execute([$name, $phone, $email, $unitCode, $rent, $moveIn, $status, $id]);
+            $stmt->execute([$name, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
 
             if ($status === 'inactive') {
                 $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$unitCode]);
@@ -252,6 +254,7 @@ $adminUser = $_SESSION['user'];
                   <th>Assigned Unit</th>
                   <th>Classification</th>
                   <th>Monthly Rent</th>
+                  <th>Current Balance</th>
                   <th>Contract Move-in</th>
                   <th>Lease Status</th>
                   <th class="text-end">Actions</th>
@@ -260,7 +263,7 @@ $adminUser = $_SESSION['user'];
               <tbody>
                 <?php if (empty($tenants)): ?>
                   <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">No resident records found in database.</td>
+                    <td colspan="8" class="text-center py-4 text-muted">No resident records found in database.</td>
                   </tr>
                 <?php else: ?>
                   <?php foreach ($tenants as $t): ?>
@@ -270,6 +273,7 @@ $adminUser = $_SESSION['user'];
                       $filterCat = ($isActive ? 'active ' : 'inactive ') . ($isPrivate ? 'private' : 'boarding');
                       $initials = strtoupper(substr($t['full_name'], 0, 1) . substr(strrchr($t['full_name'], ' ') ?: '', 1, 1));
                       if (!$initials) $initials = 'TN';
+                      $tBal = (float)($t['balance'] ?? $t['monthly_rent']);
                     ?>
                     <tr class="filterable-item <?= !$isActive ? 'table-light text-muted' : '' ?>" data-category="<?= $filterCat ?>" data-status="<?= $t['lease_status'] ?>">
                       <td>
@@ -289,6 +293,17 @@ $adminUser = $_SESSION['user'];
                         <span class="badge badge-light border"><?= $isPrivate ? 'Private House' : 'Boarding House' ?></span>
                       </td>
                       <td class="fw-bold text-navy">₱<?= number_format($t['monthly_rent'], 2) ?></td>
+                      <td>
+                        <?php if ($tBal < 0): ?>
+                          <span class="fw-bold text-success">-₱<?= number_format(abs($tBal), 2) ?></span>
+                          <small class="badge badge-success d-block mt-1">Advance Credit</small>
+                        <?php elseif ($tBal == 0): ?>
+                          <span class="fw-bold text-success">₱0.00</span>
+                          <small class="text-muted d-block">Fully Paid</small>
+                        <?php else: ?>
+                          <span class="fw-bold text-danger">₱<?= number_format($tBal, 2) ?></span>
+                        <?php endif; ?>
+                      </td>
                       <td><small class="text-muted"><?= $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'N/A' ?></small></td>
                       <td>
                         <?php if ($isActive): ?>
@@ -299,7 +314,7 @@ $adminUser = $_SESSION['user'];
                       </td>
                       <td class="text-end">
                         <div class="btn-group btn-group-sm">
-                          <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="openEditTenantModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['full_name'])) ?>', '<?= htmlspecialchars($t['phone']) ?>', '<?= htmlspecialchars($t['email'] ?? '') ?>', '<?= htmlspecialchars($t['unit_code'] ?? '') ?>', <?= $t['monthly_rent'] ?>, '<?= $t['move_in_date'] ?>', '<?= $t['lease_status'] ?>')">
+                          <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="openEditTenantModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['full_name'])) ?>', '<?= htmlspecialchars($t['phone']) ?>', '<?= htmlspecialchars($t['email'] ?? '') ?>', '<?= htmlspecialchars($t['unit_code'] ?? '') ?>', <?= $t['monthly_rent'] ?>, '<?= $t['move_in_date'] ?>', '<?= $t['lease_status'] ?>', <?= $tBal ?>)">
                             <i class="bi bi-pencil-square"></i>
                           </button>
                           <?php if ($isActive): ?>
@@ -434,6 +449,11 @@ $adminUser = $_SESSION['user'];
                 <input type="number" class="form-control" id="editTenantRent" name="monthly_rent" required value="3500">
               </div>
               <div class="col-md-6">
+                <label for="editTenantBalance" class="form-label small fw-bold text-navy">Current Balance / Advance (₱)</label>
+                <input type="number" step="0.01" class="form-control" id="editTenantBalance" name="balance" required value="0">
+                <small class="text-muted">Negative value = Advance Credit</small>
+              </div>
+              <div class="col-md-6">
                 <label for="editTenantStatus" class="form-label small fw-bold text-navy">Lease Status</label>
                 <select class="form-control" id="editTenantStatus" name="lease_status">
                   <option value="active">Active Resident</option>
@@ -457,13 +477,14 @@ $adminUser = $_SESSION['user'];
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
   <script src="../assets/js/script.js"></script>
   <script>
-    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status) {
+    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance) {
       $('#editTenantId').val(id);
       $('#editTenantName').val(name);
       $('#editTenantContact').val(phone);
       $('#editTenantEmail').val(email);
       $('#editTenantRoom').val(unit);
       $('#editTenantRent').val(rent);
+      $('#editTenantBalance').val(balance !== undefined ? balance : rent);
       $('#editTenantMoveIn').val(moveIn);
       $('#editTenantStatus').val(status);
       $('#editTenantModal').modal('show');

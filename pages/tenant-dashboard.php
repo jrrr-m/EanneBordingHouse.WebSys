@@ -50,7 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $refNo = trim($_POST['reference_no'] ?? '');
         $amount = (float)($_POST['amount'] ?? ($user['monthly_rent'] ?? 3500));
         $method = trim($_POST['payment_method'] ?? 'GCash');
+        $paymentType = strtolower(trim($_POST['payment_type'] ?? 'rent'));
+        if (!in_array($paymentType, ['rent', 'partial', 'advance'])) $paymentType = 'rent';
+        // Safeguard: Cannot choose advance payment if there is an outstanding balance
+        $userBal = (float)($user['balance'] ?? 0);
+        if ($paymentType === 'advance' && $userBal > 0) {
+            $paymentType = 'partial';
+        }
         $unitCode = $user['unit_code'] ?? 'BH-02';
+        $tenantId = $user['id'] ?? null;
 
         $proofPath = '';
         if (!empty($_FILES['proof_image']['name'])) {
@@ -68,11 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!empty($refNo)) {
             $stmt = $pdo->prepare("
-                INSERT INTO payments (reference_no, tenant_name, unit_code, amount, payment_method, payment_date, proof_image, status, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW(), ?, 'pending', NOW())
+                INSERT INTO payments (reference_no, tenant_id, tenant_name, unit_code, amount, payment_method, payment_type, payment_date, proof_image, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending', NOW())
             ");
-            $stmt->execute([$refNo, $tenantName, $unitCode, $amount, $method, $proofPath]);
-            header("Location: tenant-dashboard.php?msg=" . urlencode("Proof of Payment #{$refNo} submitted successfully."));
+            $stmt->execute([$refNo, $tenantId, $tenantName, $unitCode, $amount, $method, $paymentType, $proofPath]);
+            header("Location: tenant-dashboard.php?msg=" . urlencode("Proof of Payment #{$refNo} submitted successfully. Admin will review and approve."));
             exit;
         }
     }
@@ -106,18 +114,34 @@ $paymentsStmt = $pdo->prepare("
 $paymentsStmt->execute([$tenantName]);
 $payments = $paymentsStmt->fetchAll();
 
-// Determine Statement Status
-$latestPayment = $payments[0] ?? null;
+// Determine Balance & Statement Status
+$currentBalance = (float)($user['balance'] ?? $user['monthly_rent']);
+$monthlyRent = (float)$user['monthly_rent'];
+
+// Count pending payments for this tenant
+$pendingStmt = $pdo->prepare("SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM payments WHERE tenant_name = ? AND status = 'pending'");
+$pendingStmt->execute([$tenantName]);
+[$pendingCount, $pendingTotal] = $pendingStmt->fetch(PDO::FETCH_NUM);
+$pendingCount = (int)$pendingCount;
+$pendingTotal = (float)$pendingTotal;
+
 $statementStatus = 'unpaid';
-$statementBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending Settlement</span>';
-if ($latestPayment) {
-    if ($latestPayment['status'] === 'verified') {
+$statementBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Balance Due: ₱' . number_format($currentBalance, 2) . '</span>';
+
+if ($currentBalance <= 0) {
+    if ($currentBalance < 0) {
+        $statementStatus = 'advanced';
+        $statementBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-shield-check"></i> Advance Credit: ₱' . number_format(abs($currentBalance), 2) . '</span>';
+    } else {
         $statementStatus = 'verified';
-        $statementBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Verified & Cleared</span>';
-    } elseif ($latestPayment['status'] === 'pending') {
-        $statementStatus = 'pending';
-        $statementBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Verification in Progress</span>';
+        $statementBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Fully Settled & Cleared</span>';
     }
+} elseif ($pendingCount > 0) {
+    $statementStatus = 'pending';
+    $statementBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-hourglass-split"></i> Review in Progress (' . $pendingCount . ' Pending Approval)</span>';
+} else {
+    $statementStatus = 'unpaid';
+    $statementBadge = '<span class="badge-ebh badge-pending"><i class="bi bi-exclamation-circle"></i> Pending Settlement (₱' . number_format($currentBalance, 2) . ')</span>';
 }
 
 // Fetch Tenant Maintenance Tickets
@@ -228,25 +252,58 @@ $firstName = explode(' ', trim($user['full_name']))[0];
           </div>
           <div class="ebh-card-body">
             <div class="row align-items-center g-3 mb-4">
-              <div class="col-md-6 border-end-md">
+              <div class="col-md-4 border-end-md">
                 <span class="text-muted small d-block">Monthly Room Rent</span>
-                <div class="h2 fw-bold text-navy mb-0">₱<?= number_format($user['monthly_rent'], 2) ?></div>
-                <small class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Bills Excluded (Shouldered by Tenant)</small>
+                <div class="h3 fw-bold text-navy mb-0">₱<?= number_format($user['monthly_rent'], 2) ?></div>
+                <small class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Bills Excluded</small>
               </div>
-              <div class="col-md-6 ps-md-4">
+              <div class="col-md-4 border-end-md ps-md-3">
+                <span class="text-muted small d-block">Current Outstanding Balance</span>
+                <div class="h3 fw-bold <?= $currentBalance <= 0 ? ($currentBalance < 0 ? 'text-success' : 'text-success') : 'text-danger' ?> mb-0" id="tenantCurrentBalanceDisplay">
+                  <?php if ($currentBalance < 0): ?>
+                    -₱<?= number_format(abs($currentBalance), 2) ?>
+                  <?php else: ?>
+                    ₱<?= number_format($currentBalance, 2) ?>
+                  <?php endif; ?>
+                </div>
+                <?php if ($currentBalance < 0): ?>
+                  <small class="text-success fw-bold"><i class="bi bi-shield-check me-1"></i> ₱<?= number_format(abs($currentBalance), 2) ?> Advance Credit</small>
+                <?php elseif ($currentBalance == 0): ?>
+                  <small class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Fully Paid (Zero Balance)</small>
+                <?php else: ?>
+                  <small class="text-warning fw-semibold"><i class="bi bi-clock-history me-1"></i> Pay whatever you can or advance</small>
+                <?php endif; ?>
+              </div>
+              <div class="col-md-4 ps-md-3">
                 <span class="text-muted small d-block">Due Date</span>
                 <div class="h5 fw-bold text-navy mb-1"><i class="bi bi-calendar-event me-1 text-primary"></i> <?= date('F 5, Y') ?></div>
                 <small class="text-muted">Due every 5th of the month</small>
               </div>
             </div>
 
+            <?php if ($pendingCount > 0): ?>
+              <div class="alert alert-info border-info py-2 px-3 mb-3 small d-flex align-items-center justify-content-between">
+                <div>
+                  <i class="bi bi-hourglass-split me-1"></i> <strong>Under Review:</strong> You have <strong><?= $pendingCount ?> payment(s) totaling ₱<?= number_format($pendingTotal, 2) ?></strong> pending admin review. Once approved, it will automatically deduct from your balance.
+                </div>
+                <span class="badge badge-warning text-dark">Awaiting Approval</span>
+              </div>
+            <?php endif; ?>
+
             <div class="d-flex flex-wrap gap-2 pt-3 border-top justify-content-between align-items-center">
               <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="modal" data-target="#paymentChannelsModal">
                 <i class="bi bi-qr-code me-1 text-primary"></i> View GCash / Bank QR Codes
               </button>
-              <button type="button" class="btn btn-sm btn-ebh-accent fw-bold" data-toggle="modal" data-target="#tenantUploadModal">
-                <i class="bi bi-upload me-1"></i> Upload Receipt Screenshot
-              </button>
+              <div class="d-flex gap-2">
+                <?php if ($currentBalance <= 0): ?>
+                  <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="btnAdvancePayment" onclick="openPaymentModalWithType('advance')">
+                    <i class="bi bi-calendar-plus me-1"></i> Advance Payment
+                  </button>
+                <?php endif; ?>
+                <button type="button" class="btn btn-sm btn-ebh-accent fw-bold" onclick="openPaymentModalWithType('partial')">
+                  <i class="bi bi-upload me-1"></i> <?= $currentBalance > 0 ? 'Pay Any Amount / Settle' : 'Submit Payment Proof' ?>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -265,6 +322,7 @@ $firstName = explode(' ', trim($user['full_name']))[0];
                 <tr>
                   <th>Receipt / Ref #</th>
                   <th>Date Paid</th>
+                  <th>Type</th>
                   <th>Payment Mode</th>
                   <th>Amount</th>
                   <th>Landlord Status</th>
@@ -274,7 +332,7 @@ $firstName = explode(' ', trim($user['full_name']))[0];
               <tbody>
                 <?php if (empty($payments)): ?>
                   <tr>
-                    <td colspan="6" class="text-center py-4 text-muted">No payment records found for your account.</td>
+                    <td colspan="7" class="text-center py-4 text-muted">No payment records found for your account.</td>
                   </tr>
                 <?php else: ?>
                   <?php foreach ($payments as $p): ?>
@@ -282,10 +340,20 @@ $firstName = explode(' ', trim($user['full_name']))[0];
                       $isPending = $p['status'] === 'pending';
                       $isVerified = $p['status'] === 'verified';
                       $isRejected = $p['status'] === 'rejected';
+                      $pType = $p['payment_type'] ?? 'rent';
                     ?>
                     <tr class="<?= $isPending ? 'table-warning' : '' ?>">
                       <td class="fw-bold text-navy font-monospace"><?= htmlspecialchars($p['reference_no']) ?></td>
                       <td><?= date('M j, Y', strtotime($p['payment_date'])) ?></td>
+                      <td>
+                        <?php if ($pType === 'advance'): ?>
+                          <span class="badge badge-success text-white"><i class="bi bi-calendar-plus me-1"></i> Advance</span>
+                        <?php elseif ($pType === 'partial'): ?>
+                          <span class="badge badge-info text-white"><i class="bi bi-pie-chart me-1"></i> Partial</span>
+                        <?php else: ?>
+                          <span class="badge badge-secondary text-white">Rent</span>
+                        <?php endif; ?>
+                      </td>
                       <td><span class="badge badge-light border"><i class="bi bi-phone text-primary me-1"></i> <?= htmlspecialchars($p['payment_method']) ?></span></td>
                       <td class="fw-bold text-navy">₱<?= number_format($p['amount'], 2) ?></td>
                       <td>
@@ -462,6 +530,66 @@ $firstName = explode(' ', trim($user['full_name']))[0];
         <form method="POST" action="tenant-dashboard.php" enctype="multipart/form-data">
           <input type="hidden" name="action" value="upload_payment">
           <div class="modal-body p-4">
+            <!-- Payment Intent Selector -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-navy mb-1">What are you paying for?</label>
+              <div class="btn-group btn-group-toggle w-100 d-flex" data-toggle="buttons">
+                <label class="btn btn-outline-primary btn-sm <?= $currentBalance <= 0 ? '' : 'active' ?> flex-fill" id="optTypeRent">
+                  <input type="radio" name="payment_type" id="typeRent" value="rent" <?= $currentBalance <= 0 ? '' : 'checked' ?> onchange="updatePayModalHints('rent')"> Regular Rent
+                </label>
+                <label class="btn btn-outline-info btn-sm flex-fill" id="optTypePartial">
+                  <input type="radio" name="payment_type" id="typePartial" value="partial" onchange="updatePayModalHints('partial')"> Partial / Whatever I Can
+                </label>
+                <?php if ($currentBalance <= 0): ?>
+                  <label class="btn btn-outline-success btn-sm active flex-fill" id="optTypeAdvance">
+                    <input type="radio" name="payment_type" id="typeAdvance" value="advance" checked onchange="updatePayModalHints('advance')"> Advance Payment
+                  </label>
+                <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Quick Amount Shortcut Chips -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-navy mb-1">Quick Amount Shortcuts</label>
+              <div class="d-flex flex-wrap gap-1">
+                <?php if ($currentBalance > 0): ?>
+                  <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= $currentBalance ?>)">
+                    <i class="bi bi-tag-fill me-1"></i> Full Balance (₱<?= number_format($currentBalance) ?>)
+                  </button>
+                  <?php if ($currentBalance > 1000): ?>
+                    <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= round($currentBalance / 2) ?>)">
+                      <i class="bi bi-pie-chart me-1"></i> Half (₱<?= number_format(round($currentBalance / 2)) ?>)
+                    </button>
+                  <?php endif; ?>
+                <?php endif; ?>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= $monthlyRent ?>)">
+                  <i class="bi bi-calendar me-1"></i> 1 Month (₱<?= number_format($monthlyRent) ?>)
+                </button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= $monthlyRent * 2 ?>)">
+                  <i class="bi bi-calendar-plus me-1"></i> 2 Mos Adv (₱<?= number_format($monthlyRent * 2) ?>)
+                </button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(1000)">
+                  ₱1,000
+                </button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(500)">
+                  ₱500
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label for="payAmount" class="form-label small fw-bold text-navy">Amount to Pay (₱)</label>
+                <input type="number" step="0.01" min="1" class="form-control" id="payAmount" name="amount" required value="<?= $currentBalance > 0 ? $currentBalance : $user['monthly_rent'] ?>">
+                <small class="text-muted" id="payAmountHint">Enter any amount you can pay today.</small>
+              </div>
+              <div class="col-md-6">
+                <label for="payRefNumber" class="form-label small fw-bold text-navy">Reference / Trans #</label>
+                <input type="text" class="form-control" id="payRefNumber" name="reference_no" required placeholder="e.g. 992813401">
+                <small class="text-muted">From your GCash / Bank receipt</small>
+              </div>
+            </div>
+
             <div class="mb-3">
               <label for="payMethodSelect" class="form-label small fw-bold text-navy">Payment Method Used</label>
               <select class="form-control" id="payMethodSelect" name="payment_method" required>
@@ -473,17 +601,6 @@ $firstName = explode(' ', trim($user['full_name']))[0];
               </select>
             </div>
 
-            <div class="row g-3 mb-3">
-              <div class="col-md-6">
-                <label for="payAmount" class="form-label small fw-bold text-navy">Amount Paid (₱)</label>
-                <input type="number" class="form-control" id="payAmount" name="amount" required value="<?= $user['monthly_rent'] ?>">
-              </div>
-              <div class="col-md-6">
-                <label for="payRefNumber" class="form-label small fw-bold text-navy">Reference / Trans #</label>
-                <input type="text" class="form-control" id="payRefNumber" name="reference_no" required placeholder="e.g. 992813401">
-              </div>
-            </div>
-
             <div class="mb-3">
               <label class="form-label small fw-bold text-navy">Attach Screenshot / Photo Receipt</label>
               <input type="file" class="form-control" id="paymentReceiptFile" name="proof_image" accept="image/*">
@@ -491,12 +608,12 @@ $firstName = explode(' ', trim($user['full_name']))[0];
             </div>
 
             <div class="alert alert-light border small text-muted mb-0">
-              <i class="bi bi-info-circle me-1 text-primary"></i> The Landlord administrator reviews and marks verified within 2-4 hours. You will receive an official digital receipt.
+              <i class="bi bi-shield-check text-success me-1"></i> <strong>Admin Approval Policy:</strong> Pay whatever you can or advance. The landlord administrator reviews and approves all payments. Once approved, the exact amount will reduce your outstanding balance. Any excess automatically credits to your advance payment.
             </div>
           </div>
           <div class="modal-footer bg-light">
             <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-check2-circle me-1"></i> Submit Payment Verification</button>
+            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-check2-circle me-1"></i> Submit Payment for Admin Approval</button>
           </div>
         </form>
       </div>
@@ -551,5 +668,53 @@ $firstName = explode(' ', trim($user['full_name']))[0];
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.3/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
   <script src="../assets/js/script.js"></script>
+  <script>
+    function setPayAmount(amt) {
+      $('#payAmount').val(amt);
+    }
+
+    function openPaymentModalWithType(type) {
+      if (type === 'advance') {
+        $('#typeAdvance').prop('checked', true).trigger('change');
+        $('#optTypeAdvance').addClass('active').siblings().removeClass('active');
+        updatePayModalHints('advance');
+      } else if (type === 'partial') {
+        $('#typePartial').prop('checked', true).trigger('change');
+        $('#optTypePartial').addClass('active').siblings().removeClass('active');
+        updatePayModalHints('partial');
+      } else {
+        $('#typeRent').prop('checked', true).trigger('change');
+        $('#optTypeRent').addClass('active').siblings().removeClass('active');
+        updatePayModalHints('rent');
+      }
+      $('#tenantUploadModal').modal('show');
+    }
+
+    function updatePayModalHints(type) {
+      const curBal = <?= json_encode($currentBalance) ?>;
+      const rent = <?= json_encode($monthlyRent) ?>;
+      const $hint = $('#payAmountHint');
+      const $amt = $('#payAmount');
+
+      if (type === 'advance') {
+        $hint.html('<span class="text-success"><i class="bi bi-shield-check me-1"></i> <strong>Advance Payment:</strong> Any amount paid in advance will be stored as an advance credit on your account and reduce future rent.</span>');
+        if (parseFloat($amt.val()) <= 0 || parseFloat($amt.val()) === curBal) {
+          $amt.val(rent);
+        }
+      } else if (type === 'partial') {
+        $hint.html('<span class="text-info"><i class="bi bi-info-circle me-1"></i> <strong>Partial Payment:</strong> Pay whatever you can afford. The admin will verify it and reduce your balance accordingly.</span>');
+        if (curBal > 0 && parseFloat($amt.val()) === rent) {
+          $amt.val(Math.round(curBal / 2));
+        }
+      } else {
+        $hint.html('<span class="text-muted">Enter the amount you are paying today.</span>');
+        if (curBal > 0) {
+          $amt.val(curBal);
+        } else {
+          $amt.val(rent);
+        }
+      }
+    }
+  </script>
 </body>
 </html>

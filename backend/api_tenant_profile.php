@@ -39,6 +39,7 @@ try {
                 u.email,
                 u.unit_code,
                 u.monthly_rent,
+                u.balance,
                 u.move_in_date,
                 u.lease_status,
                 r.room_type,
@@ -58,7 +59,7 @@ try {
         // Fallback to first active tenant dynamically from database
         $stmt2 = $pdo->query("
             SELECT 
-                u.id, u.username, u.full_name, u.phone, u.email, u.unit_code, u.monthly_rent, u.move_in_date, u.lease_status,
+                u.id, u.username, u.full_name, u.phone, u.email, u.unit_code, u.monthly_rent, u.balance, u.move_in_date, u.lease_status,
                 r.room_type, r.inclusions, r.max_pax
             FROM users u
             LEFT JOIN rooms r ON u.unit_code = r.unit_code
@@ -76,8 +77,9 @@ try {
     }
 
     $rent = (float)$user['monthly_rent'];
+    $balance = (float)($user['balance'] ?? $rent);
 
-    // Check latest payment for current month
+    // Check latest payment for current tenant
     $stmtPay = $pdo->prepare("
         SELECT * FROM payments 
         WHERE tenant_id = ? OR tenant_name = ?
@@ -87,20 +89,38 @@ try {
     $stmtPay->execute([$user['id'], $user['full_name']]);
     $latestPayment = $stmtPay->fetch();
 
+    // Check if there are any pending payments awaiting admin review
+    $stmtPending = $pdo->prepare("
+        SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM payments 
+        WHERE (tenant_id = ? OR tenant_name = ?) AND status = 'pending'
+    ");
+    $stmtPending->execute([$user['id'], $user['full_name']]);
+    [$pendingPaymentsCount, $pendingPaymentsAmount] = $stmtPending->fetch(PDO::FETCH_NUM);
+    $pendingPaymentsCount = (int)$pendingPaymentsCount;
+    $pendingPaymentsAmount = (float)$pendingPaymentsAmount;
+
     $paymentStatus = 'unpaid';
-    $paymentStatusText = 'Pending Settlement';
+    $paymentStatusText = 'Outstanding Balance';
     $badgeClass = 'badge-pending';
 
-    if ($latestPayment) {
-        if ($latestPayment['status'] === 'verified') {
-            $paymentStatus = 'verified';
-            $paymentStatusText = 'Verified & Cleared';
+    if ($balance <= 0) {
+        if ($balance < 0) {
+            $paymentStatus = 'advanced';
+            $paymentStatusText = 'Advance Credit (₱' . number_format(abs($balance), 2) . ')';
             $badgeClass = 'badge-verified';
-        } elseif ($latestPayment['status'] === 'pending') {
-            $paymentStatus = 'pending';
-            $paymentStatusText = 'Verification in Progress';
-            $badgeClass = 'badge-pending';
+        } else {
+            $paymentStatus = 'cleared';
+            $paymentStatusText = 'Paid & Settled';
+            $badgeClass = 'badge-verified';
         }
+    } elseif ($pendingPaymentsCount > 0) {
+        $paymentStatus = 'pending';
+        $paymentStatusText = 'Review in Progress (' . $pendingPaymentsCount . ' Pending)';
+        $badgeClass = 'badge-pending';
+    } else {
+        $paymentStatus = 'unpaid';
+        $paymentStatusText = 'Pending Settlement (₱' . number_format($balance, 2) . ')';
+        $badgeClass = 'badge-pending';
     }
 
     $parts = explode(' ', trim($user['full_name']));
@@ -122,6 +142,12 @@ try {
             'inclusions' => $user['inclusions'] ?? 'Individual room, kitchen area, shared CR. Bills excluded.',
             'monthly_rent' => $rent,
             'monthly_rent_formatted' => '₱' . number_format($rent, 2),
+            'balance' => $balance,
+            'balance_formatted' => ($balance < 0 ? '-₱' . number_format(abs($balance), 2) : '₱' . number_format($balance, 2)),
+            'advance_credit' => $balance < 0 ? abs($balance) : 0,
+            'advance_credit_formatted' => '₱' . number_format($balance < 0 ? abs($balance) : 0, 2),
+            'pending_payments_count' => $pendingPaymentsCount,
+            'pending_payments_amount' => $pendingPaymentsAmount,
             'move_in_date' => $user['move_in_date'] ? date('M j, Y', strtotime($user['move_in_date'])) : 'Jan 15, 2026',
             'statement_month' => date('F Y'),
             'due_date' => date('F 5, Y'),
@@ -132,6 +158,7 @@ try {
                 'reference_no' => $latestPayment['reference_no'],
                 'amount' => (float)$latestPayment['amount'],
                 'payment_method' => $latestPayment['payment_method'],
+                'payment_type' => $latestPayment['payment_type'] ?? 'rent',
                 'status' => $latestPayment['status'],
                 'date' => date('M j, Y', strtotime($latestPayment['payment_date']))
             ] : null

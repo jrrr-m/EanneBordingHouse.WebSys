@@ -23,13 +23,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $description = trim($_POST['description'] ?? '');
         $ticketNo = 'TKT-' . rand(1000, 9999);
 
+        $initialStatus = strtolower(trim($_POST['status'] ?? 'open'));
+        if (!in_array($initialStatus, ['open', 'in_progress', 'resolved'])) {
+            $initialStatus = 'open';
+        }
+        $resolvedAt = ($initialStatus === 'resolved') ? date('Y-m-d H:i:s') : null;
+
         if (!empty($tenantName) && !empty($description)) {
             $stmt = $pdo->prepare("
-                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 'open', NOW())
+                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, status, created_at, resolved_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
             ");
-            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description]);
-            header("Location: tickets.php?msg=" . urlencode("Service Ticket #{$ticketNo} logged into database."));
+            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description, $initialStatus, $resolvedAt]);
+            header("Location: tickets.php?msg=" . urlencode("Service Ticket #{$ticketNo} logged into database with status " . ucfirst(str_replace('_', ' ', $initialStatus)) . "."));
             exit;
         }
     }
@@ -37,13 +43,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 2. Update Ticket Status (Open, In Progress, Resolved)
     if ($action === 'update_status') {
         $id = (int)($_POST['id'] ?? 0);
-        $newStatus = $_POST['status'] ?? 'open';
+        $newStatus = strtolower(trim($_POST['status'] ?? 'open'));
+        if (!in_array($newStatus, ['open', 'in_progress', 'resolved'])) {
+            $newStatus = 'open';
+        }
         $resolvedAt = ($newStatus === 'resolved') ? date('Y-m-d H:i:s') : null;
 
         if ($id > 0) {
             $stmt = $pdo->prepare("UPDATE maintenance_tickets SET status = ?, resolved_at = ? WHERE id = ?");
             $stmt->execute([$newStatus, $resolvedAt, $id]);
-            header("Location: tickets.php?msg=" . urlencode("Ticket status updated to " . ucfirst($newStatus) . "."));
+            $statusLabel = ($newStatus === 'in_progress') ? 'In Progress' : ucfirst($newStatus);
+            header("Location: tickets.php?msg=" . urlencode("Ticket status updated to " . $statusLabel . "."));
             exit;
         }
     }
@@ -246,7 +256,7 @@ $adminUser = $_SESSION['user'];
                   <th style="width: 180px;" class="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="adminTicketsTbody">
                 <?php if (empty($tickets)): ?>
                   <tr>
                     <td colspan="8" class="text-center py-4 text-muted">No maintenance requests logged yet.</td>
@@ -278,32 +288,51 @@ $adminUser = $_SESSION['user'];
                         <?php endif; ?>
                       </td>
                       <td>
-                        <?php if ($isOpen): ?>
-                          <span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Open</span>
-                        <?php elseif ($isInProgress): ?>
-                          <span class="badge badge-primary"><i class="bi bi-wrench-adjustable"></i> In Progress</span>
-                        <?php elseif ($isResolved): ?>
-                          <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Resolved</span>
-                        <?php endif; ?>
+                        <form method="POST" action="tickets.php" class="d-inline">
+                          <input type="hidden" name="action" value="update_status">
+                          <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                          <select name="status" class="form-select form-select-sm status-select status-select-<?= $t['status'] ?>" onchange="this.form.submit()" style="font-size:0.8rem; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer;">
+                            <option value="open" <?= $isOpen ? 'selected' : '' ?>>🟡 Open</option>
+                            <option value="in_progress" <?= $isInProgress ? 'selected' : '' ?>>🔵 In Progress</option>
+                            <option value="resolved" <?= $isResolved ? 'selected' : '' ?>>🟢 Resolved</option>
+                          </select>
+                        </form>
                       </td>
                       <td><small class="text-muted"><?= date('M j, Y', strtotime($t['created_at'])) ?></small></td>
                       <td class="text-right">
                         <div class="btn-group btn-group-sm">
-                          <?php if (!$isResolved): ?>
-                            <form method="POST" action="tickets.php" class="d-inline" onsubmit="return confirm('Mark Ticket #<?= htmlspecialchars($t['ticket_no']) ?> as Resolved?');">
-                              <input type="hidden" name="action" value="update_status">
-                              <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                              <input type="hidden" name="status" value="resolved">
-                              <button type="submit" class="btn btn-success" title="Mark Resolved"><i class="bi bi-check-lg"></i></button>
-                            </form>
-                          <?php else: ?>
-                            <form method="POST" action="tickets.php" class="d-inline">
-                              <input type="hidden" name="action" value="update_status">
-                              <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                              <input type="hidden" name="status" value="open">
-                              <button type="submit" class="btn btn-outline-warning" title="Reopen Ticket"><i class="bi bi-arrow-counterclockwise"></i></button>
-                            </form>
-                          <?php endif; ?>
+                          <div class="dropdown d-inline">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Change Status">
+                              <i class="bi bi-pencil-square me-1"></i> Status
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right shadow-sm border-0">
+                              <h6 class="dropdown-header text-uppercase text-muted" style="font-size:0.7rem;">Select Status</h6>
+                              <form method="POST" action="tickets.php">
+                                <input type="hidden" name="action" value="update_status">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="status" value="open">
+                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 <?= $isOpen ? 'active fw-bold' : '' ?>">
+                                  <i class="bi bi-clock-history text-warning"></i> Set as Open
+                                </button>
+                              </form>
+                              <form method="POST" action="tickets.php">
+                                <input type="hidden" name="action" value="update_status">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="status" value="in_progress">
+                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 <?= $isInProgress ? 'active fw-bold' : '' ?>">
+                                  <i class="bi bi-wrench-adjustable text-primary"></i> Set as In Progress
+                                </button>
+                              </form>
+                              <form method="POST" action="tickets.php">
+                                <input type="hidden" name="action" value="update_status">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="status" value="resolved">
+                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 <?= $isResolved ? 'active fw-bold' : '' ?>">
+                                  <i class="bi bi-check-circle-fill text-success"></i> Set as Resolved
+                                </button>
+                              </form>
+                            </div>
+                          </div>
                           <form method="POST" action="tickets.php" class="d-inline" onsubmit="return confirm('Delete Ticket #<?= htmlspecialchars($t['ticket_no']) ?>?');">
                             <input type="hidden" name="action" value="delete_ticket">
                             <input type="hidden" name="id" value="<?= $t['id'] ?>">
@@ -353,7 +382,7 @@ $adminUser = $_SESSION['user'];
                 <input type="text" class="form-control form-control-sm" id="adminTicketUnit" name="unit_code" value="BH-01" required>
               </div>
 
-              <div class="col-md-6">
+              <div class="col-md-4">
                 <label for="adminTicketCategory" class="form-label small fw-bold text-navy">Category</label>
                 <select class="form-control form-control-sm" id="adminTicketCategory" name="category" required>
                   <option value="Plumbing">Plumbing (Pipes, CR, Sinks)</option>
@@ -363,12 +392,20 @@ $adminUser = $_SESSION['user'];
                   <option value="General">General Compound Repairs</option>
                 </select>
               </div>
-              <div class="col-md-6">
+              <div class="col-md-4">
                 <label for="adminTicketUrgency" class="form-label small fw-bold text-navy">Urgency / Priority</label>
                 <select class="form-control form-control-sm" id="adminTicketUrgency" name="urgency" required>
                   <option value="Normal">Normal Priority</option>
                   <option value="Urgent">Urgent (Immediate Caretaker Visit)</option>
                   <option value="Low">Low / Scheduled Routine</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="adminTicketStatus" class="form-label small fw-bold text-navy">Status</label>
+                <select class="form-control form-control-sm font-weight-bold" id="adminTicketStatus" name="status" required>
+                  <option value="open" selected>Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
                 </select>
               </div>
 
@@ -386,6 +423,49 @@ $adminUser = $_SESSION['user'];
       </div>
     </div>
   </div>
+
+  <!-- Modal: View & Update Maintenance Ticket Details -->
+  <div class="modal fade" id="viewTicketModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-navy text-white">
+          <h6 class="modal-title font-weight-bold"><i class="bi bi-info-circle me-2 text-info"></i> Maintenance Ticket Details</h6>
+          <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body p-4" id="viewTicketModalBody">
+          <!-- Populated by JavaScript previewTicketDetails() -->
+        </div>
+        <div class="modal-footer bg-light justify-content-between">
+          <div id="viewTicketActionBtns"></div>
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .status-select {
+      border: 1px solid #ced4da;
+      transition: all 0.2s ease;
+    }
+    .status-select-open {
+      background-color: #fff9e6;
+      color: #b7791f;
+      border-color: #f6e05e;
+    }
+    .status-select-in_progress {
+      background-color: #ebf8ff;
+      color: #2b6cb0;
+      border-color: #bee3f8;
+    }
+    .status-select-resolved {
+      background-color: #f0fff4;
+      color: #2f855a;
+      border-color: #9ae6b4;
+    }
+  </style>
 
   <!-- Full jQuery 3.7.1, Popper.js, Bootstrap 4.1.3 JS -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>

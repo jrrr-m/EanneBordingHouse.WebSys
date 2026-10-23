@@ -1074,7 +1074,6 @@ window.openRejectPaymentModal = function (id, refNo, tenantName, amount, unitCod
                     <option value="">-- Choose a standard reason (optional) --</option>
                     <option value="Unclear or blurry proof of payment. Transaction reference number and amount are unreadable.">Unclear or blurry receipt screenshot</option>
                     <option value="Reference / Transaction number does not match the uploaded proof of payment.">Reference number mismatch</option>
-                    <option value="Incorrect payment amount. Sent amount does not match current rent balance.">Incorrect payment amount</option>
                     <option value="Duplicate submission. This transaction receipt was already recorded or claimed.">Duplicate receipt submission</option>
                     <option value="Payment not received in owner's GCash / BPI bank account. Please check recipient number.">Payment not found in landlord account</option>
                     <option value="Payment sent to wrong recipient / invalid account.">Wrong recipient account used</option>
@@ -1085,7 +1084,6 @@ window.openRejectPaymentModal = function (id, refNo, tenantName, amount, unitCod
                   <div class="d-flex flex-wrap gap-1 mb-3" id="rejectQuickChips">
                     <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Unclear or blurry receipt. Please re-upload a clear image showing reference number and amount."><i class="bi bi-tag me-1"></i> Blurry receipt</button>
                     <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Reference number does not match uploaded receipt screenshot."><i class="bi bi-tag me-1"></i> Ref # mismatch</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Payment amount does not match current rent bill."><i class="bi bi-tag me-1"></i> Incorrect amount</button>
                     <button type="button" class="btn btn-xs btn-outline-secondary reject-chip" onclick="window.setRejectReasonChip ? window.setRejectReasonChip(this.getAttribute('data-reason')) : (document.getElementById('rejectReasonText').value = this.getAttribute('data-reason'))" data-reason="Transaction not found in landlord's bank / GCash history."><i class="bi bi-tag me-1"></i> Not received</button>
                   </div>
 
@@ -1533,8 +1531,15 @@ window.loadPaymentsList = function () {
             `;
           }
 
+          let typeBadge = '<span class="badge badge-secondary text-white">Rent</span>';
+          if (p.payment_type === 'advance') {
+            typeBadge = '<span class="badge badge-success text-white"><i class="bi bi-calendar-plus me-1"></i> Advance</span>';
+          } else if (p.payment_type === 'partial') {
+            typeBadge = '<span class="badge badge-info text-white"><i class="bi bi-pie-chart me-1"></i> Partial</span>';
+          }
+
           html += `
-            <tr class="filterable-item ${isPending ? 'table-warning' : ''}" data-category="${p.status} ${p.payment_method.toLowerCase()}" data-status="${p.status}" id="payment-row-${p.id}">
+            <tr class="filterable-item ${isPending ? 'table-warning' : ''}" data-category="${p.status} ${p.payment_method.toLowerCase()} ${p.payment_type || 'rent'}" data-status="${p.status}" id="payment-row-${p.id}">
               <td class="fw-bold text-navy">${p.reference_no}</td>
               <td>
                 <div class="d-flex align-items-center gap-2">
@@ -1545,6 +1550,7 @@ window.loadPaymentsList = function () {
                   </div>
                 </div>
               </td>
+              <td>${typeBadge}</td>
               <td class="fw-bold text-navy">${p.amount_formatted}</td>
               <td><span class="badge badge-light border"><i class="bi bi-credit-card text-primary me-1"></i> ${p.payment_method}</span></td>
               <td><small class="text-muted">${p.payment_date}</small></td>
@@ -2327,6 +2333,14 @@ window.loadTenantsList = function () {
           ? '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span>'
           : '<span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Past Resident</span>';
 
+        const balNum = parseFloat(t.balance !== undefined ? t.balance : t.monthly_rent);
+        let balHtml = `<span class="fw-bold text-danger">₱${balNum.toLocaleString(undefined, {minimumFractionDigits:2})}</span>`;
+        if (balNum < 0) {
+          balHtml = `<span class="fw-bold text-success">-₱${Math.abs(balNum).toLocaleString(undefined, {minimumFractionDigits:2})}</span><small class="badge badge-success d-block mt-1">Advance Credit</small>`;
+        } else if (balNum === 0) {
+          balHtml = `<span class="fw-bold text-success">₱0.00</span><small class="text-muted d-block">Fully Paid</small>`;
+        }
+
         html += `
           <tr class="filterable-item" data-category="${t.category}" data-status="${t.lease_status}">
             <td>
@@ -2341,12 +2355,13 @@ window.loadTenantsList = function () {
             <td><span class="fw-semibold text-navy">Unit ${t.unit_code}</span> <small class="text-muted d-block">${t.room_type}</small></td>
             <td><span class="badge badge-light border">${t.classification}</span></td>
             <td class="fw-bold text-navy">${t.monthly_rent_formatted}</td>
+            <td>${balHtml}</td>
             <td><small class="text-muted">${t.move_in_date}</small></td>
             <td>${statusBadge}</td>
             <td class="text-end">
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${(t.full_name || '').replace(/'/g, "\\'")}', 'Unit ${t.unit_code}', '${(t.room_type || '').replace(/'/g, "\\'")}', '${t.monthly_rent_formatted}', '${(t.phone || '').replace(/'/g, "\\'")}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
-                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}')"><i class="bi bi-pencil-square"></i></button>
+                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', ${balNum})"><i class="bi bi-pencil-square"></i></button>
                 <button type="button" class="btn btn-outline-secondary" title="Mark Move Out / Inactive" onclick="removeTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-box-arrow-right"></i></button>
                 <button type="button" class="btn btn-outline-danger" title="Permanently Delete Tenant Account" onclick="window.deleteTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
               </div>
@@ -2355,7 +2370,7 @@ window.loadTenantsList = function () {
         `;
       });
 
-      $tbody.html(html || '<tr><td colspan="7" class="text-center py-4 text-muted">No resident records found in database.</td></tr>');
+      $tbody.html(html || '<tr><td colspan="8" class="text-center py-4 text-muted">No resident records found in database.</td></tr>');
 
       if (res.counts) {
         if ($('#tenantCountBadge').length) $('#tenantCountBadge').text(res.counts.active);
@@ -2404,6 +2419,14 @@ window.loadTenantDashboard = function (tenantName, username) {
       // Statement Info
       if ($('#tenantStatementMonth').length) $('#tenantStatementMonth').text(p.statement_month);
       if ($('#tenantStatementRent').length) $('#tenantStatementRent').text(p.monthly_rent_formatted);
+      if ($('#tenantCurrentBalanceDisplay').length && p.balance_formatted) {
+        $('#tenantCurrentBalanceDisplay').text(p.balance_formatted);
+        if (p.balance <= 0) {
+          $('#tenantCurrentBalanceDisplay').removeClass('text-danger').addClass('text-success');
+        } else {
+          $('#tenantCurrentBalanceDisplay').removeClass('text-success').addClass('text-danger');
+        }
+      }
       if ($('#tenantStatementDueDate').length) {
         $('#tenantStatementDueDate').html(`<i class="bi bi-calendar-event me-1 text-primary"></i> ${p.due_date}`);
       }
@@ -2416,7 +2439,29 @@ window.loadTenantDashboard = function (tenantName, username) {
       // Hidden Form Fields for Upload Payment Modal
       if ($('#payTenantName').length) $('#payTenantName').val(p.full_name);
       if ($('#payUnitCode').length) $('#payUnitCode').val(p.unit_code);
-      if ($('#payAmount').length) $('#payAmount').val(p.monthly_rent);
+      if ($('#payAmount').length && (!parseFloat($('#payAmount').val()) || parseFloat($('#payAmount').val()) === p.monthly_rent)) {
+        $('#payAmount').val(p.balance > 0 ? p.balance : p.monthly_rent);
+      }
+
+      // Safeguard: Hide Advance Payment options if tenant has an outstanding balance
+      if ($('#btnAdvancePayment').length) {
+        if (p.balance > 0) {
+          $('#btnAdvancePayment').hide();
+        } else {
+          $('#btnAdvancePayment').show();
+        }
+      }
+      if ($('#optTypeAdvance').length) {
+        if (p.balance > 0) {
+          $('#optTypeAdvance').hide();
+          if ($('#typeAdvance').is(':checked')) {
+            $('#typePartial').prop('checked', true).trigger('change');
+            $('#optTypePartial').addClass('active').siblings().removeClass('active');
+          }
+        } else {
+          $('#optTypeAdvance').show();
+        }
+      }
 
       // Also load tenant payment history ledger & maintenance tickets from MySQL
       if (typeof window.loadTenantPayments === 'function') {
@@ -2739,26 +2784,18 @@ window.renderAdminTicketsTable = function () {
 
   let rowsHtml = '';
   filtered.forEach(function (t) {
-    let statusBadge = '';
-    let actionButtons = '';
+    const isOp = t.status === 'open';
+    const isInP = t.status === 'in_progress';
+    const isRes = t.status === 'resolved';
 
-    if (t.status === 'open') {
-      statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open</span>';
-      actionButtons = `
-        <button type="button" class="btn btn-outline-primary" title="Start Progress" onclick="window.updateTicketStatus(${t.id}, 'in_progress')"><i class="bi bi-play-fill me-1"></i> In Progress</button>
-        <button type="button" class="btn btn-success" title="Mark Resolved" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check-lg"></i></button>
-      `;
-    } else if (t.status === 'in_progress') {
-      statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
-      actionButtons = `
-        <button type="button" class="btn btn-success" title="Mark Resolved" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check-lg me-1"></i> Resolve</button>
-      `;
-    } else {
-      statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved</span>';
-      actionButtons = `
-        <button type="button" class="btn btn-outline-warning" title="Reopen Ticket" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise"></i> Reopen</button>
-      `;
-    }
+    // Interactive Status Select Box
+    const statusSelect = `
+      <select class="form-select form-select-sm status-select status-select-${t.status}" onchange="window.updateTicketStatus(${t.id}, this.value)" style="font-size:0.8rem; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer;">
+        <option value="open" ${isOp ? 'selected' : ''}>🟡 Open</option>
+        <option value="in_progress" ${isInP ? 'selected' : ''}>🔵 In Progress</option>
+        <option value="resolved" ${isRes ? 'selected' : ''}>🟢 Resolved</option>
+      </select>
+    `;
 
     const urgencyBadge = t.is_urgent
       ? '<span class="badge-ebh badge-urgent"><i class="bi bi-lightning-fill"></i> Urgent</span>'
@@ -2781,12 +2818,28 @@ window.renderAdminTicketsTable = function () {
           <div class="text-truncate text-muted small" title="${esc(t.description)}">${esc(t.description)}</div>
         </td>
         <td>${urgencyBadge}</td>
-        <td>${statusBadge}</td>
+        <td>${statusSelect}</td>
         <td class="small text-muted">${esc(t.created_at_short)}</td>
         <td class="text-right">
           <div class="btn-group btn-group-sm">
             <button type="button" class="btn btn-outline-secondary" title="View Full Details" onclick="window.previewTicketDetails(${t.id})"><i class="bi bi-eye"></i></button>
-            ${actionButtons}
+            <div class="dropdown d-inline">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Select Status">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              <div class="dropdown-menu dropdown-menu-right shadow-sm border-0">
+                <h6 class="dropdown-header text-uppercase text-muted" style="font-size:0.7rem;">Set Status</h6>
+                <button type="button" class="dropdown-item ${isOp ? 'active fw-bold' : ''}" onclick="window.updateTicketStatus(${t.id}, 'open')">
+                  <i class="bi bi-clock-history text-warning me-1"></i> Open
+                </button>
+                <button type="button" class="dropdown-item ${isInP ? 'active fw-bold' : ''}" onclick="window.updateTicketStatus(${t.id}, 'in_progress')">
+                  <i class="bi bi-wrench-adjustable text-primary me-1"></i> In Progress
+                </button>
+                <button type="button" class="dropdown-item ${isRes ? 'active fw-bold' : ''}" onclick="window.updateTicketStatus(${t.id}, 'resolved')">
+                  <i class="bi bi-check-circle-fill text-success me-1"></i> Resolved
+                </button>
+              </div>
+            </div>
           </div>
         </td>
       </tr>
@@ -2799,7 +2852,7 @@ window.renderAdminTicketsTable = function () {
 window.updateTicketStatus = function (id, newStatus) {
   const $row = $('#ticket-row-' + id);
   if ($row.length) {
-    $row.find('button').prop('disabled', true);
+    $row.find('button, select').prop('disabled', true);
   }
 
   $.ajax({
@@ -2819,12 +2872,12 @@ window.updateTicketStatus = function (id, newStatus) {
         if (typeof window.loadGlobalStats === 'function') window.loadGlobalStats();
       } else {
         showToast('Update Failed', res.error || 'Could not update ticket.', 'danger');
-        if ($row.length) $row.find('button').prop('disabled', false);
+        if ($row.length) $row.find('button, select').prop('disabled', false);
       }
     },
     error: function (xhr, status, err) {
       showToast('Error', 'Connection failed: ' + err, 'danger');
-      if ($row.length) $row.find('button').prop('disabled', false);
+      if ($row.length) $row.find('button, select').prop('disabled', false);
     }
   });
 };
@@ -2834,27 +2887,32 @@ window.previewTicketDetails = function (id) {
   const t = tickets.find(item => item.id == id);
   if (!t) return;
 
-  let statusBadge = '';
-  let actionBtnsHtml = '';
+  const isOp = t.status === 'open';
+  const isInP = t.status === 'in_progress';
+  const isRes = t.status === 'resolved';
 
-  if (t.status === 'open') {
-    statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open & Pending</span>';
-    actionBtnsHtml = `
-      <button type="button" class="btn btn-primary btn-sm" onclick="window.updateTicketStatus(${t.id}, 'in_progress')"><i class="bi bi-play-circle me-1"></i> Start Progress</button>
-      <button type="button" class="btn btn-success btn-sm" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check2-circle me-1"></i> Mark Resolved</button>
-    `;
-  } else if (t.status === 'in_progress') {
+  let statusBadge = '';
+  if (isOp) {
+    statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open</span>';
+  } else if (isInP) {
     statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
-    actionBtnsHtml = `
-      <button type="button" class="btn btn-success btn-sm" onclick="window.updateTicketStatus(${t.id}, 'resolved')"><i class="bi bi-check2-circle me-1"></i> Mark Resolved</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Open</button>
-    `;
   } else {
-    statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved & Closed</span>';
-    actionBtnsHtml = `
-      <button type="button" class="btn btn-outline-warning btn-sm" onclick="window.updateTicketStatus(${t.id}, 'open')"><i class="bi bi-arrow-counterclockwise me-1"></i> Reopen Ticket</button>
-    `;
+    statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved</span>';
   }
+
+  const actionBtnsHtml = `
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm ${isOp ? 'btn-warning fw-bold' : 'btn-outline-warning'}" onclick="window.updateTicketStatus(${t.id}, 'open')">
+        <i class="bi bi-clock-history me-1"></i> Open
+      </button>
+      <button type="button" class="btn btn-sm ${isInP ? 'btn-primary fw-bold' : 'btn-outline-primary'}" onclick="window.updateTicketStatus(${t.id}, 'in_progress')">
+        <i class="bi bi-wrench-adjustable me-1"></i> In Progress
+      </button>
+      <button type="button" class="btn btn-sm ${isRes ? 'btn-success fw-bold' : 'btn-outline-success'}" onclick="window.updateTicketStatus(${t.id}, 'resolved')">
+        <i class="bi bi-check2-circle me-1"></i> Resolved
+      </button>
+    </div>
+  `;
 
   function esc(s) {
     if (!s) return '';

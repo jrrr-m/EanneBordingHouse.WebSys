@@ -33,6 +33,7 @@ if ($method === 'GET') {
                 u.email,
                 u.unit_code,
                 u.monthly_rent,
+                u.balance,
                 u.move_in_date,
                 u.lease_status,
                 u.created_at,
@@ -90,6 +91,7 @@ if ($method === 'GET') {
             }
 
             $rent = (float)($t['monthly_rent'] ?? 0);
+            $balance = (float)($t['balance'] ?? $rent);
             $classification = $isPrivate ? 'Private House' : 'Boarding House';
             $category = ($isActive ? 'active' : 'inactive') . ' ' . ($isPrivate ? 'private' : 'boarding');
 
@@ -105,6 +107,9 @@ if ($method === 'GET') {
                 'category' => $category,
                 'monthly_rent' => $rent,
                 'monthly_rent_formatted' => '₱' . number_format($rent, 2),
+                'balance' => $balance,
+                'balance_formatted' => ($balance < 0 ? '-₱' . number_format(abs($balance), 2) : '₱' . number_format($balance, 2)),
+                'advance_credit' => $balance < 0 ? abs($balance) : 0,
                 'move_in_date' => $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'Pending',
                 'move_in_date_raw' => $t['move_in_date'] ?? '',
                 'lease_status' => $t['lease_status'],
@@ -173,11 +178,13 @@ if ($method === 'GET') {
         try {
             $pdo->beginTransaction();
 
+            $initialBalance = isset($_POST['balance']) ? (float)$_POST['balance'] : $monthlyRent;
+
             $stmt = $pdo->prepare("
-                INSERT INTO users (username, password, role, full_name, phone, email, unit_code, monthly_rent, move_in_date, lease_status)
-                VALUES (?, ?, 'tenant', ?, ?, ?, ?, ?, ?, 'active')
+                INSERT INTO users (username, password, role, full_name, phone, email, unit_code, monthly_rent, balance, move_in_date, lease_status)
+                VALUES (?, ?, 'tenant', ?, ?, ?, ?, ?, ?, ?, 'active')
             ");
-            $stmt->execute([$username, $password, $fullName, $phone, $email, $unitCode, $monthlyRent, $moveInDate]);
+            $stmt->execute([$username, $password, $fullName, $phone, $email, $unitCode, $monthlyRent, $initialBalance, $moveInDate]);
             $tenantId = (int)$pdo->lastInsertId();
 
             // Set room to occupied
@@ -265,6 +272,7 @@ if ($method === 'GET') {
         $monthlyRent = (float)($_POST['monthly_rent'] ?? 0);
         $moveInDate = trim($_POST['move_in_date'] ?? date('Y-m-d'));
         $leaseStatus = trim($_POST['lease_status'] ?? 'active');
+        $balance = isset($_POST['balance']) ? (float)$_POST['balance'] : null;
 
         if ($tenantId <= 0 || empty($fullName)) {
             http_response_code(400);
@@ -276,7 +284,7 @@ if ($method === 'GET') {
             $pdo->beginTransaction();
 
             // Fetch current tenant info
-            $stmtCurr = $pdo->prepare("SELECT id, unit_code, lease_status FROM users WHERE id = ? LIMIT 1");
+            $stmtCurr = $pdo->prepare("SELECT id, unit_code, lease_status, balance FROM users WHERE id = ? LIMIT 1");
             $stmtCurr->execute([$tenantId]);
             $currentTenant = $stmtCurr->fetch();
 
@@ -288,14 +296,15 @@ if ($method === 'GET') {
             }
 
             $oldUnitCode = $currentTenant['unit_code'];
+            $newBalance = $balance !== null ? $balance : (float)$currentTenant['balance'];
 
             // Update tenant details
             $stmtUp = $pdo->prepare("
                 UPDATE users 
-                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, move_in_date = ?, lease_status = ?
+                SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
                 WHERE id = ?
             ");
-            $stmtUp->execute([$fullName, $phone, $email, $newUnitCode, $monthlyRent, $moveInDate, $leaseStatus, $tenantId]);
+            $stmtUp->execute([$fullName, $phone, $email, $newUnitCode, $monthlyRent, $newBalance, $moveInDate, $leaseStatus, $tenantId]);
 
             // Sync room statuses
             if ($leaseStatus === 'inactive') {

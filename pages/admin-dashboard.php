@@ -70,11 +70,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes = trim($_POST['rejection_reason'] ?? '');
 
         if ($pId > 0) {
+            $pCheck = $pdo->prepare("SELECT tenant_id, tenant_name, amount, status FROM payments WHERE id = ?");
+            $pCheck->execute([$pId]);
+            $paymentRow = $pCheck->fetch();
+
             $adminName = $_SESSION['user']['full_name'] ?? 'Landlord Admin';
             if ($status === 'verified') {
                 $stmt = $pdo->prepare("UPDATE payments SET status = 'verified', verified_by = ?, verified_at = NOW() WHERE id = ?");
                 $stmt->execute([$adminName, $pId]);
-                header("Location: admin-dashboard.php?msg=" . urlencode("Payment #{$pId} verified and cleared."));
+
+                if ($paymentRow && $paymentRow['status'] !== 'verified') {
+                    $payAmount = (float)$paymentRow['amount'];
+                    if (!empty($paymentRow['tenant_id'])) {
+                        $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$payAmount, $paymentRow['tenant_id']]);
+                    } elseif (!empty($paymentRow['tenant_name'])) {
+                        $pdo->prepare("UPDATE users SET balance = balance - ? WHERE full_name = ?")->execute([$payAmount, $paymentRow['tenant_name']]);
+                    }
+                }
+
+                header("Location: admin-dashboard.php?msg=" . urlencode("Payment #{$pId} verified and balance updated."));
                 exit;
             } elseif ($status === 'rejected') {
                 $rejectNote = "Rejected by {$adminName} - " . ($notes ?: 'Unverified receipt screenshot.');

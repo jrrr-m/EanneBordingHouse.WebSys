@@ -19,22 +19,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tenantName = trim($_POST['tenant_name'] ?? '');
         $amount = (float)($_POST['amount'] ?? 0);
         $notes = trim($_POST['notes'] ?? 'Walk-in cash payment received over-the-counter.');
+        $paymentType = strtolower(trim($_POST['payment_type'] ?? 'rent'));
+        if (!in_array($paymentType, ['rent', 'partial', 'advance'])) $paymentType = 'rent';
         
-        $uStmt = $pdo->prepare("SELECT unit_code FROM users WHERE full_name = ? LIMIT 1");
+        $uStmt = $pdo->prepare("SELECT id, unit_code FROM users WHERE full_name = ? LIMIT 1");
         $uStmt->execute([$tenantName]);
         $u = $uStmt->fetch();
         $unitCode = $u ? $u['unit_code'] : 'BH-01';
+        $tenantId = $u ? $u['id'] : null;
 
         $refNo = 'CSH-' . date('ymd') . '-' . rand(100, 999);
         $adminName = $_SESSION['user']['full_name'] ?? 'Landlord Admin';
 
         $stmt = $pdo->prepare("
-            INSERT INTO payments (reference_no, tenant_name, unit_code, amount, payment_method, payment_date, status, verified_by, verified_at, admin_notes)
-            VALUES (?, ?, ?, ?, 'Cash', NOW(), 'verified', ?, NOW(), ?)
+            INSERT INTO payments (reference_no, tenant_id, tenant_name, unit_code, amount, payment_method, payment_type, payment_date, status, verified_by, verified_at, admin_notes)
+            VALUES (?, ?, ?, ?, ?, 'Cash', ?, NOW(), 'verified', ?, NOW(), ?)
         ");
-        $stmt->execute([$refNo, $tenantName, $unitCode, $amount, $adminName, $notes]);
+        $stmt->execute([$refNo, $tenantId, $tenantName, $unitCode, $amount, $paymentType, $adminName, $notes]);
 
-        header("Location: payments.php?msg=" . urlencode("Walk-in Cash Payment #{$refNo} recorded into MySQL as Verified & Cleared."));
+        // Reduce balance
+        if ($tenantId) {
+            $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$amount, $tenantId]);
+        } else {
+            $pdo->prepare("UPDATE users SET balance = balance - ? WHERE full_name = ?")->execute([$amount, $tenantName]);
+        }
+
+        header("Location: payments.php?msg=" . urlencode("Walk-in Cash Payment #{$refNo} (₱" . number_format($amount, 2) . ") recorded and tenant balance updated."));
         exit;
     }
 
@@ -42,6 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'approve_payment') {
         $paymentId = (int)($_POST['payment_id'] ?? 0);
         if ($paymentId > 0) {
+            // Check current status and amount
+            $pCheck = $pdo->prepare("SELECT tenant_id, tenant_name, amount, status FROM payments WHERE id = ?");
+            $pCheck->execute([$paymentId]);
+            $paymentRow = $pCheck->fetch();
+
             $adminName = $_SESSION['user']['full_name'] ?? 'Landlord Admin';
             $stmt = $pdo->prepare("
                 UPDATE payments 
@@ -49,7 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ?
             ");
             $stmt->execute([$adminName, $paymentId]);
-            header("Location: payments.php?msg=" . urlencode("Payment #{$paymentId} verified and cleared in MySQL."));
+
+            if ($paymentRow && $paymentRow['status'] !== 'verified') {
+                $payAmount = (float)$paymentRow['amount'];
+                if (!empty($paymentRow['tenant_id'])) {
+                    $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$payAmount, $paymentRow['tenant_id']]);
+                } elseif (!empty($paymentRow['tenant_name'])) {
+                    $pdo->prepare("UPDATE users SET balance = balance - ? WHERE full_name = ?")->execute([$payAmount, $paymentRow['tenant_name']]);
+                }
+            }
+
+            header("Location: payments.php?msg=" . urlencode("Payment #{$paymentId} verified and credited to tenant balance."));
             exit;
         }
     }
@@ -97,7 +122,7 @@ foreach ($payments as $p) {
 
 // Active tenants for walk-in cash modal dropdown
 $activeTenants = $pdo->query("
-    SELECT full_name, unit_code, monthly_rent 
+    SELECT id, full_name, unit_code, monthly_rent, balance 
     FROM users 
     WHERE role = 'tenant' AND lease_status = 'active'
     ORDER BY full_name ASC
@@ -218,6 +243,7 @@ $adminUser = $_SESSION['user'];
                 <tr>
                   <th>Reference #</th>
                   <th>Tenant & Unit</th>
+                  <th>Type</th>
                   <th>Amount</th>
                   <th>Payment Mode</th>
                   <th>Date Logged</th>
@@ -228,7 +254,7 @@ $adminUser = $_SESSION['user'];
               <tbody>
                 <?php if (empty($payments)): ?>
                   <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">No payment transactions found in database.</td>
+                    <td colspan="8" class="text-center py-4 text-muted">No payment transactions found in database.</td>
                   </tr>
                 <?php else: ?>
                   <?php foreach ($payments as $p): ?>
@@ -236,7 +262,8 @@ $adminUser = $_SESSION['user'];
                       $isPending = $p['status'] === 'pending';
                       $isVerified = $p['status'] === 'verified';
                       $isRejected = $p['status'] === 'rejected';
-                      $filterCat = $p['status'] . ' ' . strtolower($p['payment_method']);
+                      $pType = $p['payment_type'] ?? 'rent';
+                      $filterCat = $p['status'] . ' ' . strtolower($p['payment_method']) . ' ' . $pType;
                       $initials = strtoupper(substr($p['tenant_name'], 0, 1) . substr(strrchr($p['tenant_name'], ' ') ?: '', 1, 1));
                       if (!$initials) $initials = 'TN';
                     ?>
@@ -250,6 +277,15 @@ $adminUser = $_SESSION['user'];
                             <small class="text-muted">Unit <?= htmlspecialchars($p['unit_code']) ?></small>
                           </div>
                         </div>
+                      </td>
+                      <td>
+                        <?php if ($pType === 'advance'): ?>
+                          <span class="badge badge-success text-white"><i class="bi bi-calendar-plus me-1"></i> Advance</span>
+                        <?php elseif ($pType === 'partial'): ?>
+                          <span class="badge badge-info text-white"><i class="bi bi-pie-chart me-1"></i> Partial</span>
+                        <?php else: ?>
+                          <span class="badge badge-secondary text-white">Rent</span>
+                        <?php endif; ?>
                       </td>
                       <td class="fw-bold text-navy">₱<?= number_format($p['amount'], 2) ?></td>
                       <td>
@@ -315,26 +351,42 @@ $adminUser = $_SESSION['user'];
             <div class="row g-3">
               <div class="col-12">
                 <label for="cashTenantSelect" class="form-label small fw-bold text-navy">Tenant</label>
-                <select class="form-control" id="cashTenantSelect" name="tenant_name" required onchange="const rent = this.options[this.selectedIndex].getAttribute('data-rent'); if(rent) document.getElementById('cashAmountInput').value = rent;">
+                <select class="form-control" id="cashTenantSelect" name="tenant_name" required onchange="
+                  const opt = this.options[this.selectedIndex];
+                  const rent = opt.getAttribute('data-rent');
+                  const bal = opt.getAttribute('data-balance');
+                  if (bal !== null) {
+                    document.getElementById('cashAmountInput').value = parseFloat(bal) > 0 ? bal : rent;
+                    document.getElementById('cashBalanceBadge').innerHTML = 'Current Balance: <strong>₱' + parseFloat(bal).toLocaleString(undefined, {minimumFractionDigits:2}) + '</strong>';
+                  } else if (rent) {
+                    document.getElementById('cashAmountInput').value = rent;
+                  }
+                ">
                   <option value="" disabled selected>Choose active tenant...</option>
                   <?php foreach ($activeTenants as $at): ?>
-                    <option value="<?= htmlspecialchars($at['full_name']) ?>" data-rent="<?= $at['monthly_rent'] ?>">
-                      <?= htmlspecialchars($at['full_name']) ?> - Unit <?= htmlspecialchars($at['unit_code']) ?> (₱<?= number_format($at['monthly_rent']) ?>)
+                    <?php $atBal = (float)($at['balance'] ?? $at['monthly_rent']); ?>
+                    <option value="<?= htmlspecialchars($at['full_name']) ?>" data-rent="<?= $at['monthly_rent'] ?>" data-balance="<?= $atBal ?>">
+                      <?= htmlspecialchars($at['full_name']) ?> - Unit <?= htmlspecialchars($at['unit_code']) ?> (Rent: ₱<?= number_format($at['monthly_rent']) ?> | Bal: ₱<?= number_format($atBal) ?>)
                     </option>
                   <?php endforeach; ?>
+                </select>
+                <small class="text-muted d-block mt-1" id="cashBalanceBadge">Select a tenant to view their live balance.</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold text-navy">Payment Purpose / Type</label>
+                <select class="form-control" name="payment_type" id="cashPaymentType">
+                  <option value="rent">Regular Rent</option>
+                  <option value="partial">Partial Payment (Whatever they can)</option>
+                  <option value="advance">Advance Payment (Credit future rent)</option>
                 </select>
               </div>
               <div class="col-md-6">
                 <label for="cashAmountInput" class="form-label small fw-bold text-navy">Amount Received (₱)</label>
-                <input type="number" class="form-control" id="cashAmountInput" name="amount" required value="3500">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-navy">Receipt Mode</label>
-                <input type="text" class="form-control bg-light" readonly value="Auto-generated CSH-#">
+                <input type="number" step="0.01" min="1" class="form-control" id="cashAmountInput" name="amount" required value="3500">
               </div>
               <div class="col-12">
                 <label class="form-label small fw-bold text-navy">Notes / Remarks</label>
-                <input type="text" class="form-control" id="cashNotesInput" name="notes" placeholder="e.g. Paid in full for October rent">
+                <input type="text" class="form-control" id="cashNotesInput" name="notes" placeholder="e.g. Paid in full / partial / advance payment received">
               </div>
             </div>
           </div>
@@ -383,7 +435,6 @@ $adminUser = $_SESSION['user'];
                 <option value="">-- Choose a standard reason (optional) --</option>
                 <option value="Unclear or blurry proof of payment. Transaction reference number and amount are unreadable.">Unclear or blurry receipt screenshot</option>
                 <option value="Reference / Transaction number does not match the uploaded proof of payment.">Reference number mismatch</option>
-                <option value="Incorrect payment amount. Sent amount does not match current rent balance.">Incorrect payment amount</option>
                 <option value="Duplicate submission. This transaction receipt was already recorded or claimed.">Duplicate receipt submission</option>
                 <option value="Payment not received in owner's GCash / BPI bank account. Please check recipient number.">Payment not found in landlord account</option>
                 <option value="custom">Other / Custom reason</option>

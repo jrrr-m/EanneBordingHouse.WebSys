@@ -55,10 +55,14 @@ try {
     }
 
     $receiptNo = 'CSH-' . date('ymd') . '-' . rand(100, 999);
+    $paymentType = strtolower(trim($_POST['payment_type'] ?? 'rent'));
+    if (!in_array($paymentType, ['rent', 'partial', 'advance'])) {
+        $paymentType = 'rent';
+    }
 
     $insertSql = "INSERT INTO `payments` 
-        (`reference_no`, `tenant_id`, `tenant_name`, `unit_code`, `amount`, `payment_method`, `payment_date`, `status`, `admin_notes`, `verified_at`, `verified_by`)
-        VALUES (?, ?, ?, ?, ?, 'Cash', NOW(), 'verified', ?, NOW(), 'Landlord Admin')";
+        (`reference_no`, `tenant_id`, `tenant_name`, `unit_code`, `amount`, `payment_method`, `payment_type`, `payment_date`, `status`, `admin_notes`, `verified_at`, `verified_by`)
+        VALUES (?, ?, ?, ?, ?, 'Cash', ?, NOW(), 'verified', ?, NOW(), 'Landlord Admin')";
     
     $stmt = $pdo->prepare($insertSql);
     $stmt->execute([
@@ -67,10 +71,18 @@ try {
         $tenantName,
         $unitCode,
         $amount,
+        $paymentType,
         $notes
     ]);
 
     $insertedId = $pdo->lastInsertId();
+
+    // Reduce tenant's outstanding balance
+    if ($tenantId) {
+        $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$amount, $tenantId]);
+    } else {
+        $pdo->prepare("UPDATE users SET balance = balance - ? WHERE full_name = ?")->execute([$amount, $tenantName]);
+    }
 
     echo json_encode([
         'success' => true,

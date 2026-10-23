@@ -65,6 +65,8 @@ try {
         $notes = "Reason: {$rejectionReason} (Rejected by {$reviewer} on " . date('M j, Y g:i A') . ")";
     }
 
+    $previousStatus = $payment['status'];
+
     $updateStmt = $pdo->prepare("UPDATE `payments` 
         SET `status` = ?, 
             `verified_at` = NOW(), 
@@ -72,6 +74,16 @@ try {
             `admin_notes` = ? 
         WHERE `id` = ?");
     $updateStmt->execute([$newStatus, $reviewer, $notes, $id]);
+
+    // If approving a payment that was previously pending or rejected, reduce tenant balance
+    if ($isApprove && $previousStatus !== 'verified') {
+        $payAmount = (float)$payment['amount'];
+        if (!empty($payment['tenant_id'])) {
+            $pdo->prepare("UPDATE users SET balance = balance - ? WHERE id = ?")->execute([$payAmount, $payment['tenant_id']]);
+        } elseif (!empty($payment['tenant_name'])) {
+            $pdo->prepare("UPDATE users SET balance = balance - ? WHERE full_name = ?")->execute([$payAmount, $payment['tenant_name']]);
+        }
+    }
 
     // Fetch updated record
     $fetchStmt = $pdo->prepare("SELECT * FROM `payments` WHERE `id` = ?");
