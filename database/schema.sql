@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   `balance` DECIMAL(10,2) DEFAULT 0.00,
   `move_in_date` DATE NULL,
   `lease_status` ENUM('active', 'inactive') DEFAULT 'active',
+  `overdue_exemption_months` INT NOT NULL DEFAULT 0,
+  `overdue_exemption_reason` VARCHAR(255) NULL,
+  `overdue_exemption_granted_at` DATETIME NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

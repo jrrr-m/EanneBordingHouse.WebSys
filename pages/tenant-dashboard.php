@@ -6,9 +6,11 @@ if (!isset($_SESSION['user'])) {
 }
 
 require_once __DIR__ . '/../backend/db.php';
+require_once __DIR__ . '/../backend/overdue_rules.php';
 $pdo = getDbConnection();
 
 $msg = $_GET['msg'] ?? '';
+$err = $_GET['err'] ?? '';
 
 // Determine active tenant
 $currentUser = $_SESSION['user'];
@@ -41,6 +43,11 @@ if (!$user || $user['role'] === 'admin') {
     }
 }
 
+// Calculate tenant overdue metrics
+$userBal = (float)($user['balance'] ?? 0);
+$userRent = (float)($user['monthly_rent'] ?? 3500);
+$overdueMetrics = calculateOverdueStatus(array_merge($user, ['balance' => $userBal, 'monthly_rent' => $userRent]));
+
 // Handle Direct POST Actions on Tenant Dashboard
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -53,9 +60,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $paymentType = strtolower(trim($_POST['payment_type'] ?? 'rent'));
         if (!in_array($paymentType, ['rent', 'partial', 'advance'])) $paymentType = 'rent';
         // Safeguard: Cannot choose advance payment if there is an outstanding balance
-        $userBal = (float)($user['balance'] ?? 0);
         if ($paymentType === 'advance' && $userBal > 0) {
             $paymentType = 'partial';
+        }
+
+        // Policy Enforcement: If tenant is at eviction risk (3+ months non-payment), payment must be at least 50%
+        if ($overdueMetrics['is_eviction_risk'] && $amount < $overdueMetrics['min_payment_required']) {
+            $minFormatted = number_format($overdueMetrics['min_payment_required'], 2);
+            header("Location: tenant-dashboard.php?err=" . urlencode("Eviction Policy Alert: You have {$overdueMetrics['effective_overdue_months']} months of unpaid rent. A minimum payment of 50% (₱{$minFormatted}) is required to avoid eviction."));
+            exit;
         }
         $unitCode = $user['unit_code'] ?? 'BH-02';
         $tenantId = $user['id'] ?? null;
@@ -215,6 +228,51 @@ $firstName = explode(' ', trim($user['full_name']))[0];
         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
+      </div>
+    <?php endif; ?>
+
+    <?php if (!empty($err)): ?>
+      <div class="alert alert-danger alert-dismissible fade show shadow-sm border-danger py-2 px-3 mb-4" role="alert">
+        <i class="bi bi-exclamation-octagon-fill me-2"></i> <?= htmlspecialchars($err) ?>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($overdueMetrics['is_eviction_risk']): ?>
+      <!-- EVICTION WARNING BANNER (3+ Months Overdue) -->
+      <div class="alert alert-danger shadow border-danger p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+          <div class="bg-danger text-white rounded-circle p-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px;">
+            <i class="bi bi-door-closed-fill fs-4"></i>
+          </div>
+          <div>
+            <h5 class="fw-bold text-danger mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> Urgent: Notice of Eviction / Removal Risk</h5>
+            <p class="mb-0 text-dark small">
+              You currently have <strong><?= $overdueMetrics['effective_overdue_months'] ?> months of unpaid rent</strong> totaling <strong>₱<?= number_format($overdueMetrics['balance'], 2) ?></strong>. Under boarding house tenancy regulations, you must pay at least <strong>50% (₱<?= number_format($overdueMetrics['min_payment_required'], 2) ?>)</strong> immediately to keep your room and prevent lease cancellation/eviction.
+            </p>
+          </div>
+        </div>
+        <div>
+          <button type="button" class="btn btn-danger btn-sm fw-bold shadow-sm" onclick="setPayAmount(<?= $overdueMetrics['min_payment_required'] ?>); openPaymentModalWithType('partial');">
+            <i class="bi bi-credit-card-2-front me-1"></i> Pay Required 50% (₱<?= number_format($overdueMetrics['min_payment_required']) ?>)
+          </button>
+        </div>
+      </div>
+    <?php elseif ($overdueMetrics['is_exempted']): ?>
+      <!-- EXEMPTION BANNER -->
+      <div class="alert alert-info shadow-sm border-info p-3 mb-4 rounded-3 d-flex align-items-center gap-3">
+        <div class="bg-info text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:40px; height:40px;">
+          <i class="bi bi-shield-check fs-5"></i>
+        </div>
+        <div>
+          <h6 class="fw-bold text-navy mb-0"><i class="bi bi-calendar-check me-1"></i> Admin Overdue Grace Exemption Active</h6>
+          <small class="text-muted d-block">
+            You were granted an administrative exemption for <strong><?= $overdueMetrics['exemption_months'] ?> month(s)</strong> (Reason: <em>"<?= htmlspecialchars($overdueMetrics['exemption_reason']) ?>"</em>).
+            <strong>Note:</strong> Your unpaid rent of ₱<?= number_format($overdueMetrics['balance'], 2) ?> carries over to next month where full 50% minimum settlement will be mandated.
+          </small>
+        </div>
       </div>
     <?php endif; ?>
 
@@ -552,11 +610,16 @@ $firstName = explode(' ', trim($user['full_name']))[0];
             <div class="mb-3">
               <label class="form-label small fw-bold text-navy mb-1">Quick Amount Shortcuts</label>
               <div class="d-flex flex-wrap gap-1">
+                <?php if ($overdueMetrics['is_eviction_risk']): ?>
+                  <button type="button" class="btn btn-xs btn-danger fw-bold" onclick="setPayAmount(<?= $overdueMetrics['min_payment_required'] ?>)">
+                    <i class="bi bi-shield-fill-exclamation me-1"></i> Mandatory 50% Min (₱<?= number_format($overdueMetrics['min_payment_required']) ?>)
+                  </button>
+                <?php endif; ?>
                 <?php if ($currentBalance > 0): ?>
                   <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= $currentBalance ?>)">
                     <i class="bi bi-tag-fill me-1"></i> Full Balance (₱<?= number_format($currentBalance) ?>)
                   </button>
-                  <?php if ($currentBalance > 1000): ?>
+                  <?php if (!$overdueMetrics['is_eviction_risk'] && $currentBalance > 1000): ?>
                     <button type="button" class="btn btn-xs btn-outline-secondary" onclick="setPayAmount(<?= round($currentBalance / 2) ?>)">
                       <i class="bi bi-pie-chart me-1"></i> Half (₱<?= number_format(round($currentBalance / 2)) ?>)
                     </button>
@@ -580,8 +643,16 @@ $firstName = explode(' ', trim($user['full_name']))[0];
             <div class="row g-3 mb-3">
               <div class="col-md-6">
                 <label for="payAmount" class="form-label small fw-bold text-navy">Amount to Pay (₱)</label>
-                <input type="number" step="0.01" min="1" class="form-control" id="payAmount" name="amount" required value="<?= $currentBalance > 0 ? $currentBalance : $user['monthly_rent'] ?>">
-                <small class="text-muted" id="payAmountHint">Enter any amount you can pay today.</small>
+                <input type="number" step="0.01" 
+                  min="<?= $overdueMetrics['is_eviction_risk'] ? $overdueMetrics['min_payment_required'] : 1 ?>" 
+                  class="form-control <?= $overdueMetrics['is_eviction_risk'] ? 'border-danger' : '' ?>" 
+                  id="payAmount" name="amount" required 
+                  value="<?= $overdueMetrics['is_eviction_risk'] ? $overdueMetrics['min_payment_required'] : ($currentBalance > 0 ? $currentBalance : $user['monthly_rent']) ?>">
+                <small class="<?= $overdueMetrics['is_eviction_risk'] ? 'text-danger fw-bold' : 'text-muted' ?>" id="payAmountHint">
+                  <?= $overdueMetrics['is_eviction_risk'] 
+                    ? '<i class="bi bi-exclamation-triangle-fill me-1"></i> 3+ months non-payment. Minimum 50% required: ₱' . number_format($overdueMetrics['min_payment_required'], 2) 
+                    : 'Enter any amount you can pay today.' ?>
+                </small>
               </div>
               <div class="col-md-6">
                 <label for="payRefNumber" class="form-label small fw-bold text-navy">Reference / Trans #</label>

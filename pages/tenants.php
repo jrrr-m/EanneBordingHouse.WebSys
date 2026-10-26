@@ -6,6 +6,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
 }
 
 require_once __DIR__ . '/../backend/db.php';
+require_once __DIR__ . '/../backend/overdue_rules.php';
 $pdo = getDbConnection();
 
 $msg = $_GET['msg'] ?? '';
@@ -34,6 +35,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$isAdminVerified) {
         header("Location: tenants.php?err=" . urlencode("Security Check Failed: Incorrect admin password. Changes were not saved."));
         exit;
+    }
+
+    // 0. Update Overdue Exemption / Deferral
+    if ($action === 'update_exemption') {
+        $id = (int)($_POST['id'] ?? 0);
+        $exemptMonths = max(0, (int)($_POST['exemption_months'] ?? 0));
+        $exemptReason = trim($_POST['exemption_reason'] ?? '');
+
+        if ($id > 0) {
+            $upStmt = $pdo->prepare("
+                UPDATE users 
+                SET overdue_exemption_months = ?, 
+                    overdue_exemption_reason = ?, 
+                    overdue_exemption_granted_at = " . ($exemptMonths > 0 ? "NOW()" : "NULL") . " 
+                WHERE id = ? AND role = 'tenant'
+            ");
+            $upStmt->execute([$exemptMonths, $exemptMonths > 0 ? $exemptReason : null, $id]);
+            
+            $msgText = $exemptMonths > 0 
+                ? "Exemption granted for {$exemptMonths} month(s). Reason: {$exemptReason}."
+                : "Exemption cleared. Standard overdue & eviction enforcement restored.";
+            header("Location: tenants.php?msg=" . urlencode($msgText));
+            exit;
+        }
+    }
+
+    // 0.1 Execute Eviction / Remove Due to Unpaid Rent
+    if ($action === 'evict_tenant') {
+        $id = (int)($_POST['id'] ?? 0);
+        $evictionReason = trim($_POST['eviction_reason'] ?? 'Evicted due to 3+ months non-payment');
+        if ($id > 0) {
+            $stmt = $pdo->prepare("SELECT full_name, unit_code, balance, monthly_rent FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+            $t = $stmt->fetch();
+            if ($t) {
+                $pdo->beginTransaction();
+                try {
+                    $currentUnit = $t['unit_code'];
+                    $pdo->prepare("UPDATE users SET lease_status = 'inactive', previous_unit_code = COALESCE(?, previous_unit_code), unit_code = NULL WHERE id = ?")
+                        ->execute([$currentUnit, $id]);
+
+                    if (!empty($currentUnit)) {
+                        $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$currentUnit]);
+                    }
+
+                    // Log audit transfer
+                    $pdo->prepare("INSERT INTO tenant_unit_transfers (tenant_id, from_unit, to_unit, transfer_type, reason, authorized_by) VALUES (?, ?, NULL, 'move_out', ?, ?)")
+                        ->execute([$id, $currentUnit, 'EVICTION: ' . $evictionReason, $_SESSION['user']['username'] ?? 'Admin']);
+
+                    $pdo->commit();
+                    header("Location: tenants.php?msg=" . urlencode("Tenant {$t['full_name']} has been evicted and removed from Unit " . ($currentUnit ?: 'N/A') . "."));
+                    exit;
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    header("Location: tenants.php?err=" . urlencode("Failed to process eviction: " . $e->getMessage()));
+                    exit;
+                }
+            }
+        }
     }
 
     // 1. Register Tenant
@@ -546,13 +606,23 @@ $adminUser = $_SESSION['user'];
                           $initials = strtoupper(substr($t['full_name'], 0, 1) . substr(strrchr($t['full_name'], ' ') ?: '', 1, 1));
                           if (!$initials) $initials = 'TN';
                           $tBal = (float)($t['balance'] ?? $t['monthly_rent']);
+                          $tRent = (float)$t['monthly_rent'];
+                          $tData = array_merge($t, ['balance' => $tBal, 'monthly_rent' => $tRent]);
+                          $odInfo = calculateOverdueStatus($tData);
                         ?>
-                        <tr class="filterable-item" data-category="<?= $filterCat ?>" data-status="active">
+                        <tr class="filterable-item <?= $odInfo['is_eviction_risk'] ? 'table-danger' : '' ?>" data-category="<?= $filterCat ?>" data-status="active">
                           <td>
                             <div class="d-flex align-items-center gap-2">
-                              <div class="avatar-circle sm"><?= htmlspecialchars($initials) ?></div>
+                              <div class="avatar-circle sm <?= $odInfo['is_eviction_risk'] ? 'bg-danger text-white' : '' ?>"><?= htmlspecialchars($initials) ?></div>
                               <div>
-                                <span class="fw-bold text-navy d-block"><?= htmlspecialchars($t['full_name']) ?></span>
+                                <span class="fw-bold text-navy d-block">
+                                  <?= htmlspecialchars($t['full_name']) ?>
+                                  <?php if ($odInfo['is_eviction_risk']): ?>
+                                    <span class="badge badge-danger text-white ms-1" title="Subject to Eviction: Unpaid for <?= $odInfo['effective_overdue_months'] ?> months"><i class="bi bi-exclamation-triangle-fill"></i> EVICTION RISK</span>
+                                  <?php elseif ($odInfo['is_exempted']): ?>
+                                    <span class="badge badge-info text-white ms-1" title="Exemption Active: <?= htmlspecialchars($odInfo['exemption_reason']) ?>"><i class="bi bi-shield-check"></i> EXEMPTED</span>
+                                  <?php endif; ?>
+                                </span>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                   <small class="text-muted"><i class="bi bi-telephone me-1"></i><?= htmlspecialchars($t['phone']) ?></small>
                                   <span class="badge badge-light border text-primary" style="font-size:0.72rem;" title="Portal Login Username"><i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($t['username'] ?? 'tenant') ?></span>
@@ -577,14 +647,40 @@ $adminUser = $_SESSION['user'];
                               <small class="text-muted d-block">Fully Paid</small>
                             <?php else: ?>
                               <span class="fw-bold text-danger">₱<?= number_format($tBal, 2) ?></span>
+                              <?php if ($odInfo['raw_overdue_months'] > 0): ?>
+                                <small class="text-danger d-block fw-semibold">
+                                  <?= $odInfo['raw_overdue_months'] ?> mo. overdue
+                                  <?php if ($odInfo['exemption_months'] > 0): ?>
+                                    <span class="text-info">(-<?= $odInfo['exemption_months'] ?> ex.)</span>
+                                  <?php endif; ?>
+                                </small>
+                              <?php endif; ?>
                             <?php endif; ?>
                           </td>
                           <td><small class="text-muted"><?= $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'N/A' ?></small></td>
                           <td>
-                            <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span>
+                            <?php if ($odInfo['is_eviction_risk']): ?>
+                              <span class="badge badge-danger text-white py-1 px-2"><i class="bi bi-door-closed me-1"></i> 3+ Mos Overdue</span>
+                              <small class="text-danger d-block fw-bold" style="font-size:0.7rem;">Needs ≥₱<?= number_format($odInfo['min_payment_required']) ?> (50%)</small>
+                            <?php elseif ($odInfo['is_exempted']): ?>
+                              <span class="badge badge-warning text-dark py-1 px-2"><i class="bi bi-clock-history me-1"></i> Deferred Exemption</span>
+                              <small class="text-muted d-block" style="font-size:0.7rem;"><?= htmlspecialchars(substr($odInfo['exemption_reason'], 0, 20)) ?>...</small>
+                            <?php else: ?>
+                              <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span>
+                            <?php endif; ?>
                           </td>
                           <td class="text-end">
                             <div class="d-inline-flex align-items-center justify-content-end gap-1">
+                              <!-- Overdue Exemption / Deferral Modal Trigger -->
+                              <button type="button" class="btn btn-sm btn-outline-info btn-exempt-tenant" title="Grant or Manage Overdue Exemption"
+                                data-id="<?= $t['id'] ?>"
+                                data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                                data-balance="<?= $tBal ?>"
+                                data-rent="<?= $t['monthly_rent'] ?>"
+                                data-months="<?= $t['overdue_exemption_months'] ?? 0 ?>"
+                                data-reason="<?= htmlspecialchars($t['overdue_exemption_reason'] ?? '', ENT_QUOTES) ?>">
+                                <i class="bi bi-shield-exclamation"></i>
+                              </button>
                               <!-- Move Tenant Unit Button -->
                               <button type="button" class="btn btn-sm btn-outline-primary btn-move-tenant" title="Move Tenant to Another Unit"
                                 data-id="<?= $t['id'] ?>"
@@ -607,13 +703,24 @@ $adminUser = $_SESSION['user'];
                                 data-password="<?= htmlspecialchars($t['password'] ?? '', ENT_QUOTES) ?>">
                                 <i class="bi bi-pencil-square"></i>
                               </button>
-                              <!-- Move Out / Archive Button -->
-                              <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark <?= htmlspecialchars(addslashes($t['full_name'])) ?> as moved out:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
-                                <input type="hidden" name="action" value="archive_tenant">
-                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                <input type="hidden" name="admin_password" value="">
-                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive / Mark Moved Out"><i class="bi bi-box-arrow-right"></i></button>
-                              </form>
+                              <?php if ($odInfo['is_eviction_risk']): ?>
+                                <!-- Eviction Execution Button -->
+                                <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to EXECUTE EVICTION for <?= htmlspecialchars(addslashes($t['full_name'])) ?> (Unpaid for <?= $odInfo['effective_overdue_months'] ?> months):'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
+                                  <input type="hidden" name="action" value="evict_tenant">
+                                  <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                  <input type="hidden" name="eviction_reason" value="Overdue <?= $odInfo['effective_overdue_months'] ?> months without paying 50% minimum">
+                                  <input type="hidden" name="admin_password" value="">
+                                  <button type="submit" class="btn btn-sm btn-danger" title="Execute Eviction / Remove Resident"><i class="bi bi-door-closed-fill"></i> Evict</button>
+                                </form>
+                              <?php else: ?>
+                                <!-- Move Out / Archive Button -->
+                                <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark <?= htmlspecialchars(addslashes($t['full_name'])) ?> as moved out:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
+                                  <input type="hidden" name="action" value="archive_tenant">
+                                  <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                  <input type="hidden" name="admin_password" value="">
+                                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive / Mark Moved Out"><i class="bi bi-box-arrow-right"></i></button>
+                                </form>
+                              <?php endif; ?>
                               <!-- Delete Button -->
                               <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete resident <?= htmlspecialchars(addslashes($t['full_name'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
                                 <input type="hidden" name="action" value="delete_tenant">
@@ -1035,6 +1142,67 @@ $adminUser = $_SESSION['user'];
     </div>
   </div>
 
+  <!-- Modal: Overdue Non-Payment Exemption / Deferral -->
+  <div class="modal fade" id="exemptTenantModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-navy text-white">
+          <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-shield-exclamation me-2 text-warning"></i> Overdue Exemption / Deferral</h5>
+          <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <form method="POST" action="tenants.php" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to authorize exemption:'); if(!pwd) { return false; } document.getElementById('exemptAdminPassword').value = pwd; return true;">
+          <input type="hidden" name="action" value="update_exemption">
+          <input type="hidden" id="exemptTenantId" name="id">
+          <input type="hidden" id="exemptAdminPassword" name="admin_password" value="">
+          <div class="modal-body p-4">
+            <div class="alert alert-warning py-2 px-3 small mb-3">
+              <i class="bi bi-info-circle me-1"></i> <strong>Policy Rule:</strong> If a resident reaches <strong>3 or more months</strong> of unpaid rent, the system mandates a <strong>minimum 50% payment</strong> to prevent immediate eviction. You can grant an administrative exemption/deferral (e.g. 1 month grace period), but their deferred balance carries over and accumulates to the following month where 50% of the entire accumulated balance will still be required.
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-navy">Resident Name</label>
+              <input type="text" class="form-control" id="exemptTenantName" readonly style="background-color: #f8f9fa;">
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label small fw-bold text-navy">Current Balance</label>
+                <input type="text" class="form-control" id="exemptCurrentBalance" readonly style="background-color: #f8f9fa;">
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-bold text-navy">Monthly Rent</label>
+                <input type="text" class="form-control" id="exemptMonthlyRent" readonly style="background-color: #f8f9fa;">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="exemptMonths" class="form-label small fw-bold text-navy">Exemption / Deferral Duration (Months) <span class="text-danger">*</span></label>
+              <select class="form-control" id="exemptMonths" name="exemption_months" required>
+                <option value="0">0 Months (No Exemption / Enforce Eviction & 50% Rule)</option>
+                <option value="1" selected>1 Month Exemption (Deferred until next billing cycle)</option>
+                <option value="2">2 Months Exemption</option>
+                <option value="3">3 Months Grace Period</option>
+              </select>
+              <small class="text-muted">Setting to 0 clears any existing exemption.</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="exemptReason" class="form-label small fw-bold text-navy">Administrative Reason / Justification</label>
+              <textarea class="form-control" id="exemptReason" name="exemption_reason" rows="3" placeholder="e.g. Resident requested 1-month salary delay deferral. Agreed to pay 50% of full 4-month total next month."></textarea>
+              <small class="text-muted">Document why the landlord permitted this deferral.</small>
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-shield-check me-1"></i> Save Exemption Status</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Full jQuery 3.7.1, Popper.js, Bootstrap 4.1.3 JS -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.3/dist/umd/popper.min.js"></script>
@@ -1063,6 +1231,29 @@ $adminUser = $_SESSION['user'];
       $('#moveToUnit').val('');
       $('#moveTenantModal').modal('show');
     }
+
+    function openExemptTenantModal(id, name, balance, rent, months, reason) {
+      $('#exemptTenantId').val(id);
+      $('#exemptTenantName').val(name);
+      $('#exemptCurrentBalance').val('₱' + Number(balance).toLocaleString('en-US', {minimumFractionDigits: 2}));
+      $('#exemptMonthlyRent').val('₱' + Number(rent).toLocaleString('en-US', {minimumFractionDigits: 2}));
+      $('#exemptMonths').val(months || 0);
+      $('#exemptReason').val(reason || '');
+      $('#exemptTenantModal').modal('show');
+    }
+
+    $(document).on('click', '.btn-exempt-tenant', function(e) {
+      e.preventDefault();
+      const btn = $(this);
+      openExemptTenantModal(
+        btn.data('id'),
+        btn.data('name'),
+        btn.data('balance'),
+        btn.data('rent'),
+        btn.data('months'),
+        btn.data('reason')
+      );
+    });
 
     $(document).on('click', '.btn-edit-tenant', function(e) {
       e.preventDefault();

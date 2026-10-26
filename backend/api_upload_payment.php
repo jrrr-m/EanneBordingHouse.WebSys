@@ -153,12 +153,20 @@ try {
     }
 
     // Safeguard: Advance payment is not allowed when tenant has an outstanding balance
-    if ($paymentType === 'advance' && $tenantId) {
-        $balStmt = $pdo->prepare("SELECT balance FROM users WHERE id = ?");
-        $balStmt->execute([$tenantId]);
-        $tenantBal = (float)$balStmt->fetchColumn();
-        if ($tenantBal > 0) {
-            $paymentType = 'partial';
+    if ($tenantId) {
+        require_once __DIR__ . '/overdue_rules.php';
+        $userRowFull = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $userRowFull->execute([$tenantId]);
+        $tData = $userRowFull->fetch();
+        if ($tData) {
+            $odInfo = calculateOverdueStatus($tData);
+            if ($odInfo['is_eviction_risk'] && $amount < $odInfo['min_payment_required']) {
+                $minFmt = number_format($odInfo['min_payment_required'], 2);
+                throw new Exception("Eviction Rule Alert: You have {$odInfo['effective_overdue_months']} months overdue rent. Minimum payment of 50% (₱{$minFmt}) is required to avoid eviction.");
+            }
+            if ($paymentType === 'advance' && $odInfo['balance'] > 0) {
+                $paymentType = 'partial';
+            }
         }
     }
 

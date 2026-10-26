@@ -6,6 +6,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
 }
 
 require_once __DIR__ . '/../backend/db.php';
+require_once __DIR__ . '/../backend/overdue_rules.php';
 $pdo = getDbConnection();
 
 $toastMsg = '';
@@ -163,6 +164,19 @@ $occupancyPercent = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100
 $viewingRequestsStmt = $pdo->query("SELECT * FROM viewing_requests ORDER BY id DESC LIMIT 15");
 $viewingRequests = $viewingRequestsStmt->fetchAll();
 $pendingViewingsCount = (int)$pdo->query("SELECT COUNT(*) FROM viewing_requests WHERE status = 'pending'")->fetchColumn();
+
+// Eviction Risk & Overdue Tracking
+$activeTenantsList = $pdo->query("SELECT * FROM users WHERE role = 'tenant' AND lease_status = 'active'")->fetchAll();
+$evictionRiskTenants = [];
+$exemptedTenantsCount = 0;
+foreach ($activeTenantsList as $at) {
+    $m = calculateOverdueStatus($at);
+    if ($m['is_eviction_risk']) {
+        $evictionRiskTenants[] = array_merge($at, $m);
+    } elseif ($m['is_exempted']) {
+        $exemptedTenantsCount++;
+    }
+}
 
 // 2. Fetch Category Breakdown
 $bhTotal = (int)$pdo->query("SELECT COUNT(*) FROM rooms WHERE room_type LIKE '%Boarding%' AND room_type NOT LIKE '%Private%'")->fetchColumn();
@@ -323,6 +337,24 @@ $adminUser = $_SESSION['user'];
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
+          </div>
+        <?php endif; ?>
+
+        <?php if (!empty($evictionRiskTenants)): ?>
+          <!-- EVICTION RISK ADMIN ALERT -->
+          <div class="alert alert-danger shadow-sm border-danger p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+              <div class="bg-danger text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:42px; height:42px;">
+                <i class="bi bi-door-closed-fill fs-5"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold text-danger mb-0"><i class="bi bi-exclamation-triangle-fill me-1"></i> Eviction Alert: <?= count($evictionRiskTenants) ?> Tenant(s) at Eviction Risk (3+ Months Overdue)</h6>
+                <small class="text-dark d-block">
+                  These residents have not settled rent for 3 or more months without active exemption. Under policy, they must pay 50% minimum immediately or be evicted.
+                </small>
+              </div>
+            </div>
+            <a href="tenants.php" class="btn btn-sm btn-danger fw-bold"><i class="bi bi-people-fill me-1"></i> Review in Tenants Roster</a>
           </div>
         <?php endif; ?>
 
