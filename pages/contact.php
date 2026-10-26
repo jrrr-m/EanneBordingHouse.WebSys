@@ -165,7 +165,7 @@
             </div>
 
             <!-- Commute Directions Guide -->
-            <div class="ebh-card p-4">
+            <div class="ebh-card p-4 mb-4">
               <h5 class="fw-bold text-navy mb-3"><i class="bi bi-signpost-2-fill text-info me-2"></i> How to Get Here</h5>
               <div class="d-flex flex-column gap-3 small text-muted">
                 <div>
@@ -179,6 +179,22 @@
                 <div class="p-2 rounded bg-light border text-navy fw-semibold">
                   <i class="bi bi-shield-check text-success me-1"></i> Landmark: Soldiers Village Gate guardhouse. Tell guard you are visiting #275 105 Street.
                 </div>
+              </div>
+            </div>
+
+            <!-- Interactive Google Map Embed -->
+            <div class="ebh-card overflow-hidden shadow-sm border p-0">
+              <div class="p-3 bg-light border-bottom d-flex align-items-center justify-content-between">
+                <div>
+                  <strong class="text-navy d-block small"><i class="bi bi-geo-alt-fill text-danger me-1"></i> Soldiers Village Compound Map</strong>
+                  <span class="text-muted" style="font-size:0.75rem;">Brgy. Sta. Lucia, Pasig City</span>
+                </div>
+                <a href="https://maps.google.com/?q=Soldiers+Village+Sta+Lucia+Pasig" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline-primary py-1 px-2" style="font-size:0.75rem;">
+                  <i class="bi bi-box-arrow-up-right me-1"></i> Open Google Maps
+                </a>
+              </div>
+              <div style="position: relative; width: 100%; height: 280px; overflow: hidden;">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d293734.37503802107!2d121.00392745175189!3d14.691211130934194!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397c700370e17c5%3A0x44673bbd2d2ff65d!2sSoldier%E2%80%99s%20village!5e0!3m2!1sen!2sph!4v1792996817495!5m2!1sen!2sph" width="100%" height="100%" style="border:0; position:absolute; top:0; left:0; width:100%; height:100%;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
               </div>
             </div>
           </div>
