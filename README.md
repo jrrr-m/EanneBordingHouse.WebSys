@@ -10,21 +10,21 @@ Below is a map of the repository files, their roles, and linked scripts:
 
 ```text
 EanneBordingHouse.WebSys/
-├── index.html                   # Public landing page with room inventory highlights & inquiries
+├── index.php                    # Public landing page with room inventory highlights & inquiries
 ├── pages/                       # User Interface Pages (Admin & Tenant)
-│   ├── login.html               # Role-based authentication portal (Admin / Tenant)
-│   ├── admin-dashboard.html     # Landlord executive console (KPIs, queue, occupancy overview)
-│   ├── rooms.html               # File Maintenance: Room inventory (Add, Edit specs, Delete unit, occupancy)
-│   ├── tenants.html             # User Maintenance: Tenant accounts (Register/Add, Edit profile, Archive, Delete)
-│   ├── payments.html            # Verification queue for uploaded digital receipts & cash logging
-│   ├── tickets.html             # Caretaker & maintenance tickets queue (Work orders, status updates)
-│   ├── reports.html             # Financial operating ledgers, collection efficiency & CSV export
-│   ├── tenant-dashboard.html    # Tenant portal (Monthly statement, proof upload, tickets)
-│   ├── accommodations.html      # Public room catalog (Boarding House vs Private House specs)
-│   ├── house-rules.html         # Property regulations, quiet hours, and occupancy policies
-│   ├── about.html               # Compound history, landlord profile, and property amenities
-│   ├── contact.html             # Map directions, viewing appointment scheduler, and inquiries
-│   └── gallery.html             # Interactive lightbox photo tour of compound and rooms
+│   ├── login.php                # Role-based authentication portal (Admin / Tenant)
+│   ├── admin-dashboard.php      # Landlord executive console (KPIs, eviction alerts, queue, occupancy)
+│   ├── rooms.php                # File Maintenance: Room inventory (Add, Edit specs, Delete unit, occupancy)
+│   ├── tenants.php              # User Maintenance: Tenant accounts (CRUD, Move Unit, Overdue Exemption, Eviction)
+│   ├── payments.php             # Verification queue for uploaded digital receipts & cash logging
+│   ├── tickets.php              # Caretaker & maintenance tickets queue (Work orders, status updates)
+│   ├── reports.php              # Financial operating ledgers, collection efficiency & CSV export
+│   ├── tenant-dashboard.php     # Tenant portal (Monthly statement, 50% overdue rule, proof upload, tickets)
+│   ├── accommodations.php       # Public room catalog (Boarding House vs Private House specs)
+│   ├── house-rules.php          # Property regulations, quiet hours, and occupancy policies
+│   ├── about.php                # Compound history, landlord profile, and property amenities
+│   ├── contact.php              # Map directions, viewing appointment scheduler, and inquiries
+│   └── gallery.php              # Interactive lightbox photo tour of compound and rooms
 │
 ├── assets/                      # Styling, JavaScript & Media Assets
 │   ├── css/
@@ -33,27 +33,29 @@ EanneBordingHouse.WebSys/
 │   │   └── script.js            # Frontend logic, live database synchronizer & modal handlers
 │   └── img/                     # Property photography, exterior compound & room mockups
 │
-├── backend/                     # Backend PHP REST Endpoints (PDO MySQL)
+├── backend/                     # Backend PHP REST Endpoints & Business Rule Helpers (PDO MySQL)
 │   ├── db.php                   # Centralized PDO MySQL connection singleton
+│   ├── overdue_rules.php        # Overdue months calculation, 50% min payment rule, & eviction risk engine
 │   ├── api_auth.php             # Session & credentials authentication against `users` table
 │   ├── api_get_stats.php        # Live compound KPI metrics, revenue targets, and recent activity
 │   ├── api_rooms.php            # File Maintenance CRUD: Add, Edit specifications, Delete room, status toggles
 │   ├── api_tenants.php          # User Maintenance CRUD: Add tenant, Edit details, Move-out archive, Hard delete
 │   ├── api_get_payments.php     # Filtered payment transactions, revenue aggregates & rejection reason extraction
 │   ├── api_update_payment.php   # Verification endpoint: 'Verified & Cleared' approval or structured rejection with audit notes
-│   ├── api_upload_payment.php   # Receipt upload handler (saves images to uploads/payments/)
+│   ├── api_upload_payment.php   # Receipt upload handler (with eviction 50% minimum payment enforcement)
 │   ├── api_record_cash.php      # Walk-in OTC cash payment logger
 │   ├── api_tickets.php          # Maintenance ticket submission and status tracking
+│   ├── api_viewings.php         # Viewing appointment scheduling & status confirmation handler
 │   └── api_tenant_profile.php   # Dynamic tenant billing statement & payment clearance status
 │
 ├── database/                    # Database Initializer & SQL Scripts
-│   ├── schema.sql               # Complete MySQL database schema & 1-year operational dataset (79 payments, 13 tickets)
+│   ├── schema.sql               # Complete MySQL database schema & comprehensive operational dataset (79 payments, 13 tickets, transfers, viewings)
 │   └── init_db.php              # Automated one-click database table creation & migration tool (supports ?reset=1)
 │
 ├── uploads/                     # File Storage Directory
 │   └── payments/                # Uploaded tenant GCash/Maya/Bank screenshots & standard receipt placeholder (receipt_placeholder.svg)
 │
-├── NOTES.md                     # Business rules, property specs, and developer reference
+├── NOTES.md                     # Business rules, property specs, user manual & developer reference
 └── README.md                    # Project documentation, architecture & installation guide
 ```
 
@@ -161,18 +163,18 @@ The system provides pre-configured seed accounts for immediate access, grading, 
 
 ---
 
-### 2. Complete Tenant Accounts Roster
+### 2. Complete Tenant Accounts Roster (Diverse Demonstration Personas)
 
-All resident accounts sign in through [`pages/login.html`](pages/login.html) and are automatically routed to [`pages/tenant-dashboard.html`](pages/tenant-dashboard.html):
+All resident accounts sign in through [`pages/login.php`](pages/login.php) and are automatically routed to [`pages/tenant-dashboard.php`](pages/tenant-dashboard.php):
 
-| Full Name | Username | Password | Unit | Monthly Rent | Contact No. / Email | Lease Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Maria Clara Santos** | `tenant` | `tenant12345` | **BH-02** | ₱3,500.00 | 0917-882-9901<br>`maria.clara@gmail.com` | **Active** (Primary Demo) |
-| **Carlos Dominguez** | `carlos` | `carlos12345` | **BH-01** | ₱3,500.00 | 0917-234-5678<br>`carlos.d@gmail.com` | **Active** |
-| **Juan Dela Cruz** | `juan` | `juan12345` | **BH-03** | ₱3,500.00 | 0918-345-6789<br>`juan.delacruz@yahoo.com` | **Active** |
-| **Elena Garcia** | `elena` | `elena12345` | **BH-04** | ₱3,500.00 | 0919-456-7890<br>`elena.garcia@outlook.com` | **Active** |
-| **Eduardo & Grace Reyes** | `eduardo` | `eduardo12345` | **PB-01** | ₱8,000.00 | 0917-889-4455<br>`reyes.family@gmail.com` | **Active** (Private House) |
-| **Ricardo Mendoza** | `ricardo` | `ricardo12345` | **PB-02** | ₱8,000.00 | 0917-991-2233<br>`ricardo.mendoza@gmail.com` | **Inactive** (Move-out / Historical) |
+| Full Name | Username | Password | Unit | Rent | Current Balance | Overdue / Exemption Status | Demonstrated System Feature |
+| :--- | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
+| **Juan Dela Cruz** | `juan` | `juan12345` | **BH-03** | ₱3,500.00 | **₱10,500.00** | **3 Mos Overdue (Eviction Risk)** | Demonstrates the **Eviction Risk** alert banner, admin eviction button, and the **mandatory 50% minimum payment rule (≥₱5,250)**. |
+| **Maria Clara Santos** | `tenant` | `tenant12345` | **BH-02** | ₱3,500.00 | **₱14,000.00** | **4 Mos Overdue w/ 1-Mo Grace Exemption** | Demonstrates the **Admin Exemption** feature (payroll delay). Balance carried over to month 4 where full 50% settlement (₱7,000) applies across the accumulated total. Historical relocation from `BH-01`. |
+| **Carlos Dominguez** | `carlos` | `carlos12345` | **BH-01** | ₱3,500.00 | **-₱1,500.00** | **Advance Credit** | Demonstrates advance credit badge (`-₱1,500.00`), zero balance safeguards, and advance credit application to future rent. |
+| **Elena Garcia** | `elena` | `elena12345` | **BH-04** | ₱3,500.00 | **₱3,500.00** | **Normal 1-Month Due** | Standard single-month rental statement, quick payment upload, and digital receipt verification. |
+| **Eduardo & Grace Reyes** | `eduardo` | `eduardo12345` | **PB-01** | ₱8,000.00 | **₱0.00** | **Fully Paid (Zero Balance)** | Demonstrates Private Boarding House standalone rental (₱8,000/mo) with full payment clearance. |
+| **Ricardo Mendoza** | `ricardo` | `ricardo12345` | *PB-02* | ₱8,000.00 | **₱0.00** | **Inactive / Moved Out** | Demonstrates tenant archiving, past unit code resolution (`PB-02`), and room inventory release. |
 
 ---
 
@@ -242,10 +244,29 @@ The system uses AJAX polling and unified helper functions in [`assets/js/script.
     - [`assets/js/script.js`](assets/js/script.js) displays a prominent rejection badge and formatted reason box on both Admin ledgers and the Tenant Portal ([`pages/tenant-dashboard.html`](pages/tenant-dashboard.html)), ensuring complete transparency so the resident knows why the payment was declined and can submit corrected proof without delay.
     - The digital receipt lightbox preview modal also highlights a dedicated red rejection banner with the full recorded reason when reviewing previously rejected receipts.
 
+* **Overdue Rent Policy, Eviction Enforcement & Admin Exemption:**
+  - **Threshold Detection ([`backend/overdue_rules.php`](backend/overdue_rules.php)):**
+    - The engine automatically calculates overdue months from accumulated balances (`floor(balance / monthly_rent)`).
+    - If a resident has **3 or more months** of unpaid rent without an active deferral, the system marks their account as `EVICTION RISK`.
+  - **Mandatory 50% Minimum Payment:**
+    - Tenants at eviction risk are strictly required to pay **at least 50% of their total balance** immediately (or the full balance if under threshold) to prevent lease cancellation.
+    - Payments below 50% are prohibited on the frontend (validated HTML input `min` and dedicated 50% shortcut chip) and rejected server-side in [`backend/api_upload_payment.php`](backend/api_upload_payment.php).
+  - **Admin Exemption & Deferral Mechanism ([`pages/tenants.php`](pages/tenants.php)):**
+    - The landlord administrator can grant grace period exemptions (e.g., 1-3 months) with recorded administrative justifications (e.g. salary delay, medical hardship).
+    - **Carry-over Accumulation Rule:** Granting an exemption defers eviction for that month, but the unpaid rent continues to carry over to the subsequent billing cycle. On the following month (e.g., month 4), the 50% minimum payment requirement applies to the **entire combined accumulated balance** (e.g., ₱14,000 $\rightarrow$ ₱7,000 required).
+  - **Admin Eviction Execution:**
+    - If an overdue resident fails to pay the required 50% minimum and has no active exemption, the administrator can trigger the **Evict** action directly from the Tenants Roster.
+    - Protected by admin password verification, eviction automatically marks the lease as `inactive`, safely frees the rental unit back to available inventory (`status = 'available'`), and logs an immutable audit event in `tenant_unit_transfers`.
+  - **Tenant Portal Transparency ([`pages/tenant-dashboard.php`](pages/tenant-dashboard.php)):**
+    - Displays a prominent red **Notice of Eviction / Removal Risk** alert banner detailing the unpaid months, total balance, and exact 50% minimum required amount with a 1-click payment trigger.
+    - Displays a blue **Overdue Grace Exemption Active** notification showing the granted duration and landlord reason.
+
 * **1-Year Operational Dataset & Automated Seeding:**
   - **Comprehensive Transaction History (79 Payments):** Spanning October 2025 to October 2026, containing 72 verified rent collections totaling **₱351,000.00**, 3 active pending verification queue submissions ready for review, and 4 audit-trailed rejections.
+  - **Viewing Requests & Prospective Inquiries (4 Records):** Walk-in and online viewing requests across `pending`, `confirmed`, `completed`, and `cancelled` statuses.
+  - **Unit Relocation & Transfer Audit Trail (2 Records):** Unit transfer logs demonstrating room changes (`BH-01` $\rightarrow$ `BH-02`) and move-out turnover records.
   - **Standard Electronic Receipt Voucher ([`uploads/payments/receipt_placeholder.svg`](uploads/payments/receipt_placeholder.svg)):** Unified high-fidelity receipt visual featuring compound branding, address, utility notice, transaction details, and audit barcode used across all digital payment proof previews.
   - **Compound Maintenance Work Orders (13 Tickets):** 11 resolved historical maintenance records across plumbing, electrical, and carpentry, plus 2 active tickets (1 open, 1 in-progress).
-  - **Lease History & Vacancy Turnover:** Includes full tenant profiles with realistic lease turnover (such as Ricardo Mendoza completing his lease in June 2026, leaving Unit PB-02 available).
+  - **Diverse Persona Balances:** Seeded accounts covering advance credit (`-₱1,500`), regular billing (`₱3,500`), eviction risk (`₱10,500`), and deferred exemption (`₱14,000`).
   - **One-Click Setup & Migration:** Executable in any browser at `http://localhost/EanneBordingHouse.WebSys/database/init_db.php` or via phpMyAdmin import of [`database/schema.sql`](database/schema.sql).
 
