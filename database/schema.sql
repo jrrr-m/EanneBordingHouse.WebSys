@@ -132,18 +132,40 @@ VALUES
 ON DUPLICATE KEY UPDATE `monthly_rate`=VALUES(`monthly_rate`), `status`=VALUES(`status`);
 
 -- =======================================================
--- Initial Seed Data: User Accounts (Admin & Tenants)
+-- Initial Seed Data: User Accounts (Admin & Diverse Tenant Personas)
 -- =======================================================
-INSERT INTO `users` (`username`, `password`, `role`, `full_name`, `phone`, `email`, `unit_code`, `monthly_rent`, `move_in_date`, `lease_status`)
+INSERT INTO `users` (`id`, `username`, `password`, `role`, `full_name`, `phone`, `email`, `unit_code`, `previous_unit_code`, `monthly_rent`, `balance`, `move_in_date`, `lease_status`, `overdue_exemption_months`, `overdue_exemption_reason`, `overdue_exemption_granted_at`)
 VALUES
-  ('admin', 'admin12345', 'admin', 'Landlord Admin', '0917-555-EBH1', 'admin@eanneboarding.com', NULL, 0.00, NULL, 'active'),
-  ('tenant', 'tenant12345', 'tenant', 'Maria Clara Santos', '0917-882-9901', 'maria.clara@gmail.com', 'BH-02', 3500.00, '2025-10-01', 'active'),
-  ('carlos', 'carlos12345', 'tenant', 'Carlos Dominguez', '0917-234-5678', 'carlos.d@gmail.com', 'BH-01', 3500.00, '2025-10-01', 'active'),
-  ('juan', 'juan12345', 'tenant', 'Juan Dela Cruz', '0918-345-6789', 'juan.delacruz@yahoo.com', 'BH-03', 3500.00, '2025-10-01', 'active'),
-  ('elena', 'elena12345', 'tenant', 'Elena Garcia', '0919-456-7890', 'elena.garcia@outlook.com', 'BH-04', 3500.00, '2025-10-01', 'active'),
-  ('eduardo', 'eduardo12345', 'tenant', 'Eduardo & Grace Reyes', '0917-889-4455', 'reyes.family@gmail.com', 'PB-01', 8000.00, '2025-10-01', 'active'),
-  ('ricardo', 'ricardo12345', 'tenant', 'Ricardo Mendoza', '0917-991-2233', 'ricardo.mendoza@gmail.com', 'PB-02', 8000.00, '2025-10-01', 'inactive')
-ON DUPLICATE KEY UPDATE `full_name`=VALUES(`full_name`), `lease_status`=VALUES(`lease_status`);
+  -- 1. System Administrator
+  (1, 'admin', 'admin12345', 'admin', 'Landlord Admin', '0917-555-EBH1', 'admin@eanneboarding.com', NULL, NULL, 0.00, 0.00, NULL, 'active', 0, NULL, NULL),
+  
+  -- 2. Tenant with Active Grace Exemption (4 months overdue total, granted 1 month deferral)
+  (2, 'tenant', 'tenant12345', 'tenant', 'Maria Clara Santos', '0917-882-9901', 'maria.clara@gmail.com', 'BH-02', 'BH-01', 3500.00, 14000.00, '2025-10-01', 'active', 1, 'Salary delayed due to company payroll transition; agreed to settle 50% next month', '2026-10-05 10:00:00'),
+  
+  -- 3. Tenant in Good Standing with Advance Credit (-₱1,500)
+  (3, 'carlos', 'carlos12345', 'tenant', 'Carlos Dominguez', '0917-234-5678', 'carlos.d@gmail.com', 'BH-01', NULL, 3500.00, -1500.00, '2025-10-01', 'active', 0, NULL, NULL),
+  
+  -- 4. Tenant at Immediate Eviction Risk (3 months non-payment, needs ≥₱5,250 mandatory 50% payment)
+  (4, 'juan', 'juan12345', 'tenant', 'Juan Dela Cruz', '0918-345-6789', 'juan.delacruz@yahoo.com', 'BH-03', NULL, 3500.00, 10500.00, '2025-10-01', 'active', 0, NULL, NULL),
+  
+  -- 5. Regular Tenant with Normal Current Month Balance (₱3,500)
+  (5, 'elena', 'elena12345', 'tenant', 'Elena Garcia', '0919-456-7890', 'elena.garcia@outlook.com', 'BH-04', NULL, 3500.00, 3500.00, '2025-10-01', 'active', 0, NULL, NULL),
+  
+  -- 6. Standalone Private House Family (Zero Balance / Fully Settled)
+  (6, 'eduardo', 'eduardo12345', 'tenant', 'Eduardo & Grace Reyes', '0917-889-4455', 'reyes.family@gmail.com', 'PB-01', NULL, 8000.00, 0.00, '2025-10-01', 'active', 0, NULL, NULL),
+  
+  -- 7. Moved Out / Archived Resident (Previous Tenant of PB-02)
+  (7, 'ricardo', 'ricardo12345', 'tenant', 'Ricardo Mendoza', '0917-991-2233', 'ricardo.mendoza@gmail.com', NULL, 'PB-02', 8000.00, 0.00, '2025-10-01', 'inactive', 0, NULL, NULL)
+ON DUPLICATE KEY UPDATE 
+  `full_name`=VALUES(`full_name`), 
+  `unit_code`=VALUES(`unit_code`),
+  `previous_unit_code`=VALUES(`previous_unit_code`),
+  `monthly_rent`=VALUES(`monthly_rent`),
+  `balance`=VALUES(`balance`),
+  `lease_status`=VALUES(`lease_status`),
+  `overdue_exemption_months`=VALUES(`overdue_exemption_months`),
+  `overdue_exemption_reason`=VALUES(`overdue_exemption_reason`),
+  `overdue_exemption_granted_at`=VALUES(`overdue_exemption_granted_at`);
 
 -- =======================================================
 -- 1-Year Operational Payments Dataset (79 Transactions)
@@ -257,3 +279,27 @@ ON DUPLICATE KEY UPDATE
   `status`=VALUES(`status`),
   `description`=VALUES(`description`),
   `resolved_at`=VALUES(`resolved_at`);
+
+-- =======================================================
+-- Initial Seed Data: Viewing Requests (Prospective Residents)
+-- =======================================================
+INSERT INTO `viewing_requests` (`id`, `user_id`, `user_name`, `contact_phone`, `unit_or_type`, `preferred_date`, `notes`, `status`, `created_at`)
+VALUES
+  (1, NULL, 'Patricia Gomez', '0917-881-2234', 'Private House (PB-02)', '2026-10-28', 'Inquiring for family of 4. Would like to view garage and standalone kitchen.', 'confirmed', '2026-10-22 14:15:00'),
+  (2, NULL, 'Kevin Bautista', '0918-773-9912', 'Boarding Room (BH-02 / BH-03)', '2026-10-29', 'College student looking for solo or twin-sharing boarding space near transport hub.', 'pending', '2026-10-24 11:30:00'),
+  (3, NULL, 'Stephanie Ramos', '0922-334-5567', 'Private Boarding House', '2026-10-20', 'Requested weekend viewing; rescheduled by client.', 'cancelled', '2026-10-18 09:20:00'),
+  (4, NULL, 'Mark Anthony Tan', '0919-445-6678', 'Boarding Room', '2026-10-15', 'Completed room inspection. Satisfied with amenities.', 'completed', '2026-10-14 16:40:00')
+ON DUPLICATE KEY UPDATE 
+  `status`=VALUES(`status`),
+  `notes`=VALUES(`notes`);
+
+-- =======================================================
+-- Initial Seed Data: Tenant Unit Transfers & Relocation Audit Trail
+-- =======================================================
+INSERT INTO `tenant_unit_transfers` (`id`, `tenant_id`, `from_unit`, `to_unit`, `transfer_type`, `reason`, `authorized_by`, `created_at`)
+VALUES
+  (1, 2, 'BH-01', 'BH-02', 'transfer', 'Resident requested room relocation closer to front hallway for quieter study environment.', 'Landlord Admin', '2026-03-15 14:30:00'),
+  (2, 7, 'PB-02', NULL, 'move_out', 'Resident moved out / lease archived after completing work contract in Pasig.', 'Landlord Admin', '2026-06-30 16:45:00')
+ON DUPLICATE KEY UPDATE 
+  `transfer_type`=VALUES(`transfer_type`),
+  `reason`=VALUES(`reason`);

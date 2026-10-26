@@ -47,6 +47,7 @@ try {
             `phone` VARCHAR(30) NULL,
             `email` VARCHAR(100) NULL,
             `unit_code` VARCHAR(20) NULL,
+            `previous_unit_code` VARCHAR(20) NULL,
             `monthly_rent` DECIMAL(10,2) DEFAULT 0.00,
             `balance` DECIMAL(10,2) DEFAULT 0.00,
             `move_in_date` DATE NULL,
@@ -116,7 +117,7 @@ try {
     ");
 
     if ($isReset) {
-        $pdo->exec("SET FOREIGN_KEY_CHECKS = 0; TRUNCATE TABLE `payments`; TRUNCATE TABLE `maintenance_tickets`; TRUNCATE TABLE `users`; TRUNCATE TABLE `rooms`; SET FOREIGN_KEY_CHECKS = 1;");
+        $pdo->exec("SET FOREIGN_KEY_CHECKS = 0; TRUNCATE TABLE `payments`; TRUNCATE TABLE `maintenance_tickets`; TRUNCATE TABLE `users`; TRUNCATE TABLE `rooms`; TRUNCATE TABLE `viewing_requests`; TRUNCATE TABLE `tenant_unit_transfers`; SET FOREIGN_KEY_CHECKS = 1;");
     }
 
     // 4. Import seed schema directly
@@ -135,11 +136,13 @@ try {
         'pending_payments' => (int)$pdo->query("SELECT COUNT(*) FROM `payments` WHERE status = 'pending'")->fetchColumn(),
         'rejected_payments' => (int)$pdo->query("SELECT COUNT(*) FROM `payments` WHERE status = 'rejected'")->fetchColumn(),
         'maintenance_tickets' => (int)$pdo->query("SELECT COUNT(*) FROM `maintenance_tickets`")->fetchColumn(),
+        'viewing_requests' => (int)$pdo->query("SELECT COUNT(*) FROM `viewing_requests`")->fetchColumn(),
+        'tenant_transfers' => (int)$pdo->query("SELECT COUNT(*) FROM `tenant_unit_transfers`")->fetchColumn(),
     ];
 
     echo json_encode([
         'success' => true,
-        'message' => 'Database initialized and populated successfully with 1-year operational dataset!',
+        'message' => 'Database initialized and populated successfully with comprehensive operational dataset showcasing all system capabilities!',
         'database' => $dbname,
         'counts' => $counts
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
