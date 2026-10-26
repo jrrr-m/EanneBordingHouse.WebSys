@@ -98,67 +98,208 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newPassword = trim($_POST['password'] ?? '');
 
         if ($id > 0 && !empty($name)) {
-            if (!empty($newPassword)) {
-                // Changing password requires username validation
-                if (empty($customUsername)) {
-                    header("Location: tenants.php?err=" . urlencode("Username is required when changing the password."));
-                    exit;
-                }
-                $cleanedUsername = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername));
+            // Retrieve current user record to compare username / password / unit
+            $currStmt = $pdo->prepare("SELECT username, password, unit_code, lease_status, full_name FROM users WHERE id = ? LIMIT 1");
+            $currStmt->execute([$id]);
+            $currUser = $currStmt->fetch();
+
+            $updateUsername = !empty($customUsername) ? strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', $customUsername)) : ($currUser['username'] ?? '');
+
+            // If username was changed or provided, check uniqueness against other users
+            if (!empty($updateUsername) && (!isset($currUser['username']) || $updateUsername !== strtolower($currUser['username']))) {
                 $uCheck = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
-                $uCheck->execute([$cleanedUsername, $id]);
+                $uCheck->execute([$updateUsername, $id]);
                 if ($uCheck->fetch()) {
-                    header("Location: tenants.php?err=" . urlencode("Error: Username '{$cleanedUsername}' is already taken by another account."));
+                    header("Location: tenants.php?err=" . urlencode("Error: Username '{$updateUsername}' is already taken by another account."));
                     exit;
                 }
-
-                $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-                $stmt = $pdo->prepare("
-                    UPDATE users 
-                    SET full_name = ?, username = ?, password = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
-                    WHERE id = ? AND role = 'tenant'
-                ");
-                $stmt->execute([$name, $cleanedUsername, $hashedPassword, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
-            } else {
-                // Password is NOT being changed: keep stored username as is, do not overwrite or modify it
-                $stmt = $pdo->prepare("
-                    UPDATE users 
-                    SET full_name = ?, phone = ?, email = ?, unit_code = ?, monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
-                    WHERE id = ? AND role = 'tenant'
-                ");
-                $stmt->execute([$name, $phone, $email, $unitCode, $rent, $balance, $moveIn, $status, $id]);
             }
 
-            if ($status === 'inactive') {
-                $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$unitCode]);
-            } else {
-                $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
-            }
+            $oldUnit = $currUser['unit_code'] ?? null;
+            $unitChanged = !empty($unitCode) && $unitCode !== $oldUnit;
 
-            header("Location: tenants.php?msg=" . urlencode("Tenant {$name} account updated successfully."));
-            exit;
-        }
-    }
-
-    // 3. Archive / Move Out Tenant
-    if ($action === 'archive_tenant') {
-        $id = (int)($_POST['id'] ?? 0);
-        if ($id > 0) {
-            $stmt = $pdo->prepare("SELECT full_name, unit_code FROM users WHERE id = ?");
-            $stmt->execute([$id]);
-            $t = $stmt->fetch();
-            if ($t) {
-                $pdo->prepare("UPDATE users SET lease_status = 'inactive' WHERE id = ?")->execute([$id]);
-                if (!empty($t['unit_code'])) {
-                    $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$t['unit_code']]);
+            // If moving to a new unit and tenant is active, ensure target unit is not already occupied by another active tenant
+            if ($unitChanged && $status === 'active') {
+                $occupiedCheck = $pdo->prepare("SELECT id, full_name FROM users WHERE unit_code = ? AND id != ? AND lease_status = 'active' LIMIT 1");
+                $occupiedCheck->execute([$unitCode, $id]);
+                $occupiedBy = $occupiedCheck->fetch();
+                if ($occupiedBy) {
+                    header("Location: tenants.php?err=" . urlencode("Unit {$unitCode} is currently occupied by {$occupiedBy['full_name']}. Please reassign or vacate the unit first."));
+                    exit;
                 }
-                header("Location: tenants.php?msg=" . urlencode("Tenant {$t['full_name']} marked as moved out. Unit {$t['unit_code']} is now available."));
+            }
+
+            $pdo->beginTransaction();
+            try {
+                if (!empty($newPassword) && (!isset($currUser['password']) || $newPassword !== $currUser['password'])) {
+                    // New password entered and changed
+                    $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                    $stmt = $pdo->prepare("
+                        UPDATE users 
+                        SET full_name = ?, username = ?, password = ?, phone = ?, email = ?, unit_code = ?, previous_unit_code = COALESCE(?, previous_unit_code), monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                        WHERE id = ? AND role = 'tenant'
+                    ");
+                    $stmt->execute([$name, $updateUsername, $hashedPassword, $phone, $email, $unitCode, $oldUnit, $rent, $balance, $moveIn, $status, $id]);
+                } else {
+                    // Password unchanged or left as current
+                    $stmt = $pdo->prepare("
+                        UPDATE users 
+                        SET full_name = ?, username = ?, phone = ?, email = ?, unit_code = ?, previous_unit_code = COALESCE(?, previous_unit_code), monthly_rent = ?, balance = ?, move_in_date = ?, lease_status = ?
+                        WHERE id = ? AND role = 'tenant'
+                    ");
+                    $stmt->execute([$name, $updateUsername, $phone, $email, $unitCode, $oldUnit, $rent, $balance, $moveIn, $status, $id]);
+                }
+
+                // If unit was changed, update room inventory and record audit transfer
+                if ($unitChanged) {
+                    if (!empty($oldUnit)) {
+                        $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$oldUnit]);
+                    }
+                    if ($status === 'active') {
+                        $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
+                    }
+                    $transferStmt = $pdo->prepare("INSERT INTO tenant_unit_transfers (tenant_id, from_unit, to_unit, transfer_type, reason, authorized_by) VALUES (?, ?, ?, 'transfer', 'Unit transfer via tenant edit', ?)");
+                    $transferStmt->execute([$id, $oldUnit, $unitCode, $_SESSION['user']['username'] ?? 'Admin']);
+                } else {
+                    if ($status === 'inactive') {
+                        if (!empty($unitCode)) {
+                            $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$unitCode]);
+                        }
+                    } else {
+                        if (!empty($unitCode)) {
+                            $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$unitCode]);
+                        }
+                    }
+                }
+
+                $pdo->commit();
+                header("Location: tenants.php?msg=" . urlencode("Tenant {$name} account updated successfully."));
+                exit;
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                header("Location: tenants.php?err=" . urlencode("Failed to update tenant: " . $e->getMessage()));
                 exit;
             }
         }
     }
 
-    // 4. Delete Tenant
+    // 3. Move Tenant to New Unit (Dedicated Transfer Action with Safeguards)
+    if ($action === 'move_tenant') {
+        $id = (int)($_POST['id'] ?? 0);
+        $rawToUnit = trim($_POST['to_unit'] ?? '');
+        $toUnit = str_replace('Unit ', '', $rawToUnit);
+        $transferReason = trim($_POST['reason'] ?? 'Unit Relocation');
+
+        if ($id > 0 && !empty($toUnit)) {
+            $stmt = $pdo->prepare("SELECT id, full_name, unit_code, lease_status FROM users WHERE id = ? AND role = 'tenant' LIMIT 1");
+            $stmt->execute([$id]);
+            $tenant = $stmt->fetch();
+
+            if (!$tenant) {
+                header("Location: tenants.php?err=" . urlencode("Resident not found."));
+                exit;
+            }
+
+            $fromUnit = $tenant['unit_code'];
+
+            if ($fromUnit === $toUnit) {
+                header("Location: tenants.php?err=" . urlencode("Tenant is already assigned to Unit {$toUnit}."));
+                exit;
+            }
+
+            // Safeguard: Check if destination unit exists and fetch its monthly rate
+            $roomCheck = $pdo->prepare("SELECT unit_code, monthly_rate, status FROM rooms WHERE unit_code = ? LIMIT 1");
+            $roomCheck->execute([$toUnit]);
+            $destRoom = $roomCheck->fetch();
+
+            if (!$destRoom) {
+                header("Location: tenants.php?err=" . urlencode("Target Unit {$toUnit} does not exist in rooms inventory."));
+                exit;
+            }
+
+            // Safeguard: Check if destination unit is already occupied by another active tenant
+            $occupiedCheck = $pdo->prepare("SELECT id, full_name FROM users WHERE unit_code = ? AND id != ? AND lease_status = 'active' LIMIT 1");
+            $occupiedCheck->execute([$toUnit, $id]);
+            $occupiedTenant = $occupiedCheck->fetch();
+
+            if ($occupiedTenant) {
+                header("Location: tenants.php?err=" . urlencode("Safeguard Alert: Unit {$toUnit} is currently occupied by {$occupiedTenant['full_name']}. Please vacate or reassign the unit first."));
+                exit;
+            }
+
+            // Execute Unit Transfer in Atomic Transaction
+            $pdo->beginTransaction();
+            try {
+                // Update Tenant Record
+                $upTenant = $pdo->prepare("
+                    UPDATE users 
+                    SET unit_code = ?, previous_unit_code = COALESCE(?, previous_unit_code), monthly_rent = ?, lease_status = 'active'
+                    WHERE id = ?
+                ");
+                $upTenant->execute([$toUnit, $fromUnit, $destRoom['monthly_rate'], $id]);
+
+                // Free old unit if existed
+                if (!empty($fromUnit)) {
+                    $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$fromUnit]);
+                }
+
+                // Mark new unit as occupied
+                $pdo->prepare("UPDATE rooms SET status = 'occupied' WHERE unit_code = ?")->execute([$toUnit]);
+
+                // Record Transfer History Audit
+                $logStmt = $pdo->prepare("
+                    INSERT INTO tenant_unit_transfers (tenant_id, from_unit, to_unit, transfer_type, reason, authorized_by)
+                    VALUES (?, ?, ?, 'transfer', ?, ?)
+                ");
+                $logStmt->execute([$id, $fromUnit, $toUnit, $transferReason, $_SESSION['user']['username'] ?? 'Admin']);
+
+                $pdo->commit();
+                header("Location: tenants.php?msg=" . urlencode("Resident {$tenant['full_name']} successfully relocated from Unit " . ($fromUnit ?: 'None') . " to Unit {$toUnit}."));
+                exit;
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                header("Location: tenants.php?err=" . urlencode("Transfer Failed: " . $e->getMessage()));
+                exit;
+            }
+        }
+    }
+
+    // 4. Archive / Move Out Tenant
+    if ($action === 'archive_tenant') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $stmt = $pdo->prepare("SELECT full_name, unit_code, previous_unit_code FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+            $t = $stmt->fetch();
+            if ($t) {
+                $pdo->beginTransaction();
+                try {
+                    $currentUnit = $t['unit_code'];
+                    // Preserve previous_unit_code, set lease_status = inactive and clear active unit_code
+                    $pdo->prepare("UPDATE users SET lease_status = 'inactive', previous_unit_code = COALESCE(?, previous_unit_code), unit_code = NULL WHERE id = ?")
+                        ->execute([$currentUnit, $id]);
+
+                    if (!empty($currentUnit)) {
+                        $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$currentUnit]);
+                    }
+
+                    // Record move_out audit
+                    $pdo->prepare("INSERT INTO tenant_unit_transfers (tenant_id, from_unit, to_unit, transfer_type, reason, authorized_by) VALUES (?, ?, NULL, 'move_out', 'Resident moved out / lease archived', ?)")
+                        ->execute([$id, $currentUnit, $_SESSION['user']['username'] ?? 'Admin']);
+
+                    $pdo->commit();
+                    header("Location: tenants.php?msg=" . urlencode("Tenant {$t['full_name']} marked as moved out. Unit " . ($currentUnit ?: 'N/A') . " is now available."));
+                    exit;
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    header("Location: tenants.php?err=" . urlencode("Failed to archive resident: " . $e->getMessage()));
+                    exit;
+                }
+            }
+        }
+    }
+
+    // 5. Delete Tenant
     if ($action === 'delete_tenant') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
@@ -166,43 +307,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$id]);
             $t = $stmt->fetch();
             if ($t) {
-                $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
-                if (!empty($t['unit_code'])) {
-                    $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$t['unit_code']]);
+                $pdo->beginTransaction();
+                try {
+                    $pdo->prepare("DELETE FROM tenant_unit_transfers WHERE tenant_id = ?")->execute([$id]);
+                    $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);
+                    if (!empty($t['unit_code'])) {
+                        $pdo->prepare("UPDATE rooms SET status = 'available' WHERE unit_code = ?")->execute([$t['unit_code']]);
+                    }
+                    $pdo->commit();
+                    header("Location: tenants.php?msg=" . urlencode("Tenant account for {$t['full_name']} permanently deleted."));
+                    exit;
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    header("Location: tenants.php?err=" . urlencode("Failed to delete tenant: " . $e->getMessage()));
+                    exit;
                 }
-                header("Location: tenants.php?msg=" . urlencode("Tenant account for {$t['full_name']} permanently deleted."));
-                exit;
             }
         }
     }
 }
 
-// Fetch all tenants
+// Fetch all tenants with room info and historical unit resolution
 $tenantsStmt = $pdo->query("
-    SELECT u.*, COALESCE(r.room_type, 'Boarding House Rental') AS room_type, COALESCE(r.monthly_rate, u.monthly_rent) AS unit_rate
+    SELECT u.*, 
+           COALESCE(r.room_type, r_prev.room_type, 'Boarding House Rental') AS room_type, 
+           COALESCE(r.monthly_rate, u.monthly_rent) AS unit_rate,
+           COALESCE(u.unit_code, u.previous_unit_code) AS display_unit_code
     FROM users u
     LEFT JOIN rooms r ON u.unit_code = r.unit_code
+    LEFT JOIN rooms r_prev ON u.previous_unit_code = r_prev.unit_code
     WHERE u.role = 'tenant'
-    ORDER BY u.lease_status ASC, u.unit_code ASC
+    ORDER BY u.lease_status ASC, COALESCE(u.unit_code, u.previous_unit_code) ASC
 ");
-$tenants = $tenantsStmt->fetchAll();
+$allTenantsList = $tenantsStmt->fetchAll();
 
-// Fetch available and all rooms for modals
-$allRooms = $pdo->query("SELECT * FROM rooms ORDER BY unit_code ASC")->fetchAll();
-
-$totalTenants = count($tenants);
-$activeTenants = 0;
+$activeTenantsList = [];
+$inactiveTenantsList = [];
 $bhTenants = 0;
 $pbTenants = 0;
 
-foreach ($tenants as $t) {
-    if ($t['lease_status'] === 'active') $activeTenants++;
-    if (strpos($t['room_type'], 'Private') !== false) {
-        $pbTenants++;
+foreach ($allTenantsList as $t) {
+    if ($t['lease_status'] === 'active') {
+        $activeTenantsList[] = $t;
+        if (strpos($t['room_type'], 'Private') !== false) {
+            $pbTenants++;
+        } else {
+            $bhTenants++;
+        }
     } else {
-        $bhTenants++;
+        $inactiveTenantsList[] = $t;
     }
 }
+
+$totalTenants = count($allTenantsList);
+$activeTenants = count($activeTenantsList);
+$inactiveTenants = count($inactiveTenantsList);
+
+// Fetch available and all rooms for dropdowns and unit-move modal
+$allRooms = $pdo->query("SELECT * FROM rooms ORDER BY unit_code ASC")->fetchAll();
+
+// Fetch recent unit transfer logs for audit display
+$transfersStmt = $pdo->query("
+    SELECT t.*, u.full_name, u.phone 
+    FROM tenant_unit_transfers t
+    JOIN users u ON t.tenant_id = u.id
+    ORDER BY t.created_at DESC
+    LIMIT 20
+");
+$transferLogs = $transfersStmt->fetchAll();
 
 $pendingQueueCount = (int)$pdo->query("SELECT COUNT(*) FROM payments WHERE status = 'pending'")->fetchColumn();
 $openTicketsCount = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_tickets WHERE status = 'open'")->fetchColumn();
@@ -301,7 +473,7 @@ $adminUser = $_SESSION['user'];
           </div>
         <?php endif; ?>
 
-        <!-- Control Bar: Search & Filter Pills -->
+        <!-- Control Bar: Search & Status Navigation Tabs -->
         <div class="ebh-card p-3 mb-4">
           <div class="row g-3 align-items-center justify-content-between">
             <div class="col-md-5 col-lg-4">
@@ -311,123 +483,314 @@ $adminUser = $_SESSION['user'];
               </div>
             </div>
             <div class="col-md-7 col-lg-8">
-              <div class="btn-filter-group justify-content-md-end">
-                <button type="button" class="btn-filter active" data-filter="all" data-target-items="#tenantsTable tbody tr">All Tenants (<?= $totalTenants ?>)</button>
-                <button type="button" class="btn-filter" data-filter="active" data-target-items="#tenantsTable tbody tr">Active (<?= $activeTenants ?>)</button>
-                <button type="button" class="btn-filter" data-filter="boarding" data-target-items="#tenantsTable tbody tr">Boarding House (<?= $bhTenants ?>)</button>
-                <button type="button" class="btn-filter" data-filter="private" data-target-items="#tenantsTable tbody tr">Private House (<?= $pbTenants ?>)</button>
-              </div>
+              <ul class="nav nav-pills justify-content-md-end gap-1" id="tenantRosterTabs" role="tablist">
+                <li class="nav-item">
+                  <a class="nav-link active font-weight-bold" id="active-tenants-tab" data-toggle="pill" href="#tabActiveTenants" role="tab">
+                    <i class="bi bi-person-check-fill me-1 text-success"></i> Active Residents <span class="badge badge-success ml-1"><?= $activeTenants ?></span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link font-weight-bold" id="inactive-tenants-tab" data-toggle="pill" href="#tabInactiveTenants" role="tab">
+                    <i class="bi bi-person-x-fill me-1 text-secondary"></i> Inactive / Previous Residents <span class="badge badge-secondary ml-1"><?= $inactiveTenants ?></span>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link font-weight-bold" id="transfers-history-tab" data-toggle="pill" href="#tabTransfersHistory" role="tab">
+                    <i class="bi bi-arrow-left-right me-1 text-primary"></i> Relocation Logs <span class="badge badge-primary ml-1"><?= count($transferLogs) ?></span>
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
 
-        <!-- Tenants Table Card Directly Rendered from MySQL -->
-        <div class="ebh-card">
-          <div class="table-responsive">
-            <table class="table table-ebh table-hover mb-0" id="tenantsTable">
-              <thead>
-                <tr>
-                  <th>Resident Profile</th>
-                  <th>Assigned Unit</th>
-                  <th>Classification</th>
-                  <th>Monthly Rent</th>
-                  <th>Current Balance</th>
-                  <th>Contract Move-in</th>
-                  <th>Lease Status</th>
-                  <th class="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (empty($tenants)): ?>
-                  <tr>
-                    <td colspan="8" class="text-center py-4 text-muted">No resident records found in database.</td>
-                  </tr>
-                <?php else: ?>
-                  <?php foreach ($tenants as $t): ?>
-                    <?php
-                      $isActive = $t['lease_status'] === 'active';
-                      $isPrivate = strpos($t['room_type'], 'Private') !== false;
-                      $filterCat = ($isActive ? 'active ' : 'inactive ') . ($isPrivate ? 'private' : 'boarding');
-                      $initials = strtoupper(substr($t['full_name'], 0, 1) . substr(strrchr($t['full_name'], ' ') ?: '', 1, 1));
-                      if (!$initials) $initials = 'TN';
-                      $tBal = (float)($t['balance'] ?? $t['monthly_rent']);
-                    ?>
-                    <tr class="filterable-item <?= !$isActive ? 'table-light text-muted' : '' ?>" data-category="<?= $filterCat ?>" data-status="<?= $t['lease_status'] ?>">
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <div class="avatar-circle sm"><?= htmlspecialchars($initials) ?></div>
-                          <div>
-                            <span class="fw-bold text-navy d-block"><?= htmlspecialchars($t['full_name']) ?></span>
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                              <small class="text-muted"><i class="bi bi-telephone me-1"></i><?= htmlspecialchars($t['phone']) ?></small>
-                              <span class="badge badge-light border text-primary" style="font-size:0.72rem;" title="Portal Login Username"><i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($t['username'] ?? 'tenant') ?></span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span class="fw-semibold text-navy">Unit <?= htmlspecialchars($t['unit_code'] ?? 'None') ?></span>
-                        <small class="text-muted d-block"><?= htmlspecialchars($t['room_type']) ?></small>
-                      </td>
-                      <td>
-                        <span class="badge badge-light border"><?= $isPrivate ? 'Private House' : 'Boarding House' ?></span>
-                      </td>
-                      <td class="fw-bold text-navy">₱<?= number_format($t['monthly_rent'], 2) ?></td>
-                      <td>
-                        <?php if ($tBal < 0): ?>
-                          <span class="fw-bold text-success">-₱<?= number_format(abs($tBal), 2) ?></span>
-                          <small class="badge badge-success d-block mt-1">Advance Credit</small>
-                        <?php elseif ($tBal == 0): ?>
-                          <span class="fw-bold text-success">₱0.00</span>
-                          <small class="text-muted d-block">Fully Paid</small>
-                        <?php else: ?>
-                          <span class="fw-bold text-danger">₱<?= number_format($tBal, 2) ?></span>
-                        <?php endif; ?>
-                      </td>
-                      <td><small class="text-muted"><?= $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'N/A' ?></small></td>
-                      <td>
-                        <?php if ($isActive): ?>
-                          <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span>
-                        <?php else: ?>
-                          <span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Inactive</span>
-                        <?php endif; ?>
-                      </td>
-                      <td class="text-end">
-                        <div class="btn-group btn-group-sm">
-                          <button type="button" class="btn btn-outline-warning btn-edit-tenant" title="Edit Tenant Record & Credentials"
-                            data-id="<?= $t['id'] ?>"
-                            data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
-                            data-phone="<?= htmlspecialchars($t['phone'], ENT_QUOTES) ?>"
-                            data-email="<?= htmlspecialchars($t['email'] ?? '', ENT_QUOTES) ?>"
-                            data-unit="<?= htmlspecialchars($t['unit_code'] ?? '', ENT_QUOTES) ?>"
-                            data-rent="<?= $t['monthly_rent'] ?>"
-                            data-balance="<?= $tBal ?>"
-                            data-movein="<?= htmlspecialchars($t['move_in_date'] ?? '', ENT_QUOTES) ?>"
-                            data-status="<?= htmlspecialchars($t['lease_status'], ENT_QUOTES) ?>"
-                            data-username="<?= htmlspecialchars($t['username'] ?? '', ENT_QUOTES) ?>">
-                            <i class="bi bi-pencil-square"></i>
-                          </button>
-                          <?php if ($isActive): ?>
-                            <form method="POST" action="tenants.php" class="d-inline" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark <?= htmlspecialchars(addslashes($t['full_name'])) ?> as moved out:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
-                              <input type="hidden" name="action" value="archive_tenant">
-                              <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                              <input type="hidden" name="admin_password" value="">
-                              <button type="submit" class="btn btn-outline-secondary" title="Archive / Move Out"><i class="bi bi-box-arrow-right"></i></button>
-                            </form>
-                          <?php endif; ?>
-                          <form method="POST" action="tenants.php" class="d-inline" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete resident <?= htmlspecialchars(addslashes($t['full_name'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
-                            <input type="hidden" name="action" value="delete_tenant">
-                            <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                            <input type="hidden" name="admin_password" value="">
-                            <button type="submit" class="btn btn-outline-danger" title="Delete Tenant"><i class="bi bi-trash3"></i></button>
-                          </form>
-                        </div>
-                      </td>
+        <div class="tab-content" id="tenantRosterTabContent">
+          <!-- TAB 1: ACTIVE RESIDENTS TABLE -->
+          <div class="tab-pane fade show active" id="tabActiveTenants" role="tabpanel">
+            <div class="ebh-card mb-4">
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
+                <div>
+                  <h6 class="mb-0 fw-bold text-navy"><i class="bi bi-check-circle-fill text-success me-2"></i> Current Active Residents</h6>
+                  <small class="text-muted">Tenants currently residing in compound boarding units.</small>
+                </div>
+                <div class="btn-filter-group">
+                  <button type="button" class="btn-filter active" data-filter="all" data-target-items="#activeTenantsTable tbody tr">All Active (<?= $activeTenants ?>)</button>
+                  <button type="button" class="btn-filter" data-filter="boarding" data-target-items="#activeTenantsTable tbody tr">Boarding (<?= $bhTenants ?>)</button>
+                  <button type="button" class="btn-filter" data-filter="private" data-target-items="#activeTenantsTable tbody tr">Private (<?= $pbTenants ?>)</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-ebh table-hover mb-0" id="activeTenantsTable">
+                  <thead>
+                    <tr>
+                      <th>Resident Profile</th>
+                      <th>Current Unit</th>
+                      <th>Classification</th>
+                      <th>Monthly Rent</th>
+                      <th>Current Balance</th>
+                      <th>Contract Move-in</th>
+                      <th>Lease Status</th>
+                      <th class="text-end">Actions</th>
                     </tr>
-                  <?php endforeach; ?>
-                <?php endif; ?>
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    <?php if (empty($activeTenantsList)): ?>
+                      <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">No active residents found in records.</td>
+                      </tr>
+                    <?php else: ?>
+                      <?php foreach ($activeTenantsList as $t): ?>
+                        <?php
+                          $isPrivate = strpos($t['room_type'], 'Private') !== false;
+                          $filterCat = 'active ' . ($isPrivate ? 'private' : 'boarding');
+                          $initials = strtoupper(substr($t['full_name'], 0, 1) . substr(strrchr($t['full_name'], ' ') ?: '', 1, 1));
+                          if (!$initials) $initials = 'TN';
+                          $tBal = (float)($t['balance'] ?? $t['monthly_rent']);
+                        ?>
+                        <tr class="filterable-item" data-category="<?= $filterCat ?>" data-status="active">
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="avatar-circle sm"><?= htmlspecialchars($initials) ?></div>
+                              <div>
+                                <span class="fw-bold text-navy d-block"><?= htmlspecialchars($t['full_name']) ?></span>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                  <small class="text-muted"><i class="bi bi-telephone me-1"></i><?= htmlspecialchars($t['phone']) ?></small>
+                                  <span class="badge badge-light border text-primary" style="font-size:0.72rem;" title="Portal Login Username"><i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($t['username'] ?? 'tenant') ?></span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="fw-bold text-navy">Unit <?= htmlspecialchars($t['unit_code'] ?? 'N/A') ?></span>
+                            <small class="text-muted d-block"><?= htmlspecialchars($t['room_type']) ?></small>
+                          </td>
+                          <td>
+                            <span class="badge badge-light border"><?= $isPrivate ? 'Private House' : 'Boarding House' ?></span>
+                          </td>
+                          <td class="fw-bold text-navy">₱<?= number_format($t['monthly_rent'], 2) ?></td>
+                          <td>
+                            <?php if ($tBal < 0): ?>
+                              <span class="fw-bold text-success">-₱<?= number_format(abs($tBal), 2) ?></span>
+                              <small class="badge badge-success d-block mt-1">Advance Credit</small>
+                            <?php elseif ($tBal == 0): ?>
+                              <span class="fw-bold text-success">₱0.00</span>
+                              <small class="text-muted d-block">Fully Paid</small>
+                            <?php else: ?>
+                              <span class="fw-bold text-danger">₱<?= number_format($tBal, 2) ?></span>
+                            <?php endif; ?>
+                          </td>
+                          <td><small class="text-muted"><?= $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'N/A' ?></small></td>
+                          <td>
+                            <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Active</span>
+                          </td>
+                          <td class="text-end">
+                            <div class="d-inline-flex align-items-center justify-content-end gap-1">
+                              <!-- Move Tenant Unit Button -->
+                              <button type="button" class="btn btn-sm btn-outline-primary btn-move-tenant" title="Move Tenant to Another Unit"
+                                data-id="<?= $t['id'] ?>"
+                                data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                                data-unit="<?= htmlspecialchars($t['unit_code'] ?? '', ENT_QUOTES) ?>">
+                                <i class="bi bi-arrow-left-right"></i> Move Unit
+                              </button>
+                              <!-- Edit Tenant Button -->
+                              <button type="button" class="btn btn-sm btn-outline-warning btn-edit-tenant ml-1" title="Edit Tenant Record & Credentials"
+                                data-id="<?= $t['id'] ?>"
+                                data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                                data-phone="<?= htmlspecialchars($t['phone'], ENT_QUOTES) ?>"
+                                data-email="<?= htmlspecialchars($t['email'] ?? '', ENT_QUOTES) ?>"
+                                data-unit="<?= htmlspecialchars($t['unit_code'] ?? '', ENT_QUOTES) ?>"
+                                data-rent="<?= $t['monthly_rent'] ?>"
+                                data-balance="<?= $tBal ?>"
+                                data-movein="<?= htmlspecialchars($t['move_in_date'] ?? '', ENT_QUOTES) ?>"
+                                data-status="<?= htmlspecialchars($t['lease_status'], ENT_QUOTES) ?>"
+                                data-username="<?= htmlspecialchars($t['username'] ?? '', ENT_QUOTES) ?>"
+                                data-password="<?= htmlspecialchars($t['password'] ?? '', ENT_QUOTES) ?>">
+                                <i class="bi bi-pencil-square"></i>
+                              </button>
+                              <!-- Move Out / Archive Button -->
+                              <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to mark <?= htmlspecialchars(addslashes($t['full_name'])) ?> as moved out:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
+                                <input type="hidden" name="action" value="archive_tenant">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="admin_password" value="">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive / Mark Moved Out"><i class="bi bi-box-arrow-right"></i></button>
+                              </form>
+                              <!-- Delete Button -->
+                              <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete resident <?= htmlspecialchars(addslashes($t['full_name'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
+                                <input type="hidden" name="action" value="delete_tenant">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="admin_password" value="">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Tenant"><i class="bi bi-trash3"></i></button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: INACTIVE / PREVIOUS TENANTS TABLE -->
+          <div class="tab-pane fade" id="tabInactiveTenants" role="tabpanel">
+            <div class="ebh-card mb-4">
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
+                <div>
+                  <h6 class="mb-0 fw-bold text-navy"><i class="bi bi-clock-history text-secondary me-2"></i> Inactive & Previous Tenants Record</h6>
+                  <small class="text-muted">Historical roster of all previous tenants and the specific unit they resided in.</small>
+                </div>
+                <span class="badge badge-light border text-muted px-2 py-1"><i class="bi bi-archive me-1"></i> Historical Archive (<?= $inactiveTenants ?> Records)</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-ebh table-hover mb-0" id="inactiveTenantsTable">
+                  <thead>
+                    <tr>
+                      <th>Previous Resident</th>
+                      <th>Last Unit Resided</th>
+                      <th>Contact Details</th>
+                      <th>Rent Rate</th>
+                      <th>Move-in Contract</th>
+                      <th>Status</th>
+                      <th class="text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if (empty($inactiveTenantsList)): ?>
+                      <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No inactive or past tenants found.</td>
+                      </tr>
+                    <?php else: ?>
+                      <?php foreach ($inactiveTenantsList as $t): ?>
+                        <?php
+                          $initials = strtoupper(substr($t['full_name'], 0, 1) . substr(strrchr($t['full_name'], ' ') ?: '', 1, 1));
+                          if (!$initials) $initials = 'PT';
+                          $lastUnit = $t['display_unit_code'] ?: ($t['previous_unit_code'] ?: 'Unassigned');
+                        ?>
+                        <tr class="table-light">
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="avatar-circle sm bg-secondary text-white"><?= htmlspecialchars($initials) ?></div>
+                              <div>
+                                <span class="fw-bold text-navy d-block"><?= htmlspecialchars($t['full_name']) ?></span>
+                                <small class="text-muted">Username: <?= htmlspecialchars($t['username'] ?? 'tenant') ?></small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="badge badge-secondary px-2 py-1 font-weight-bold" style="font-size:0.85rem;">
+                              <i class="bi bi-door-closed me-1"></i> Unit <?= htmlspecialchars($lastUnit) ?>
+                            </span>
+                            <small class="text-muted d-block mt-1"><?= htmlspecialchars($t['room_type']) ?></small>
+                          </td>
+                          <td>
+                            <div><i class="bi bi-telephone me-1 text-muted"></i><?= htmlspecialchars($t['phone'] ?: 'None') ?></div>
+                            <small class="text-muted"><i class="bi bi-envelope me-1"></i><?= htmlspecialchars($t['email'] ?: 'None') ?></small>
+                          </td>
+                          <td class="fw-semibold text-navy">₱<?= number_format($t['monthly_rent'], 2) ?></td>
+                          <td><small class="text-muted"><?= $t['move_in_date'] ? date('M j, Y', strtotime($t['move_in_date'])) : 'N/A' ?></small></td>
+                          <td>
+                            <span class="badge-ebh badge-rejected"><i class="bi bi-x-circle"></i> Inactive / Moved Out</span>
+                          </td>
+                          <td class="text-end">
+                            <div class="d-inline-flex align-items-center justify-content-end gap-1">
+                              <!-- Re-activate / Reassign Unit Option -->
+                              <button type="button" class="btn btn-sm btn-outline-success btn-move-tenant" title="Reactivate & Assign to Unit"
+                                data-id="<?= $t['id'] ?>"
+                                data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                                data-unit="<?= htmlspecialchars($lastUnit, ENT_QUOTES) ?>">
+                                <i class="bi bi-box-arrow-in-right"></i> Assign Unit
+                              </button>
+                              <!-- Edit Record Button -->
+                              <button type="button" class="btn btn-sm btn-outline-warning btn-edit-tenant ml-1" title="Edit Tenant Record"
+                                data-id="<?= $t['id'] ?>"
+                                data-name="<?= htmlspecialchars($t['full_name'], ENT_QUOTES) ?>"
+                                data-phone="<?= htmlspecialchars($t['phone'], ENT_QUOTES) ?>"
+                                data-email="<?= htmlspecialchars($t['email'] ?? '', ENT_QUOTES) ?>"
+                                data-unit="<?= htmlspecialchars($lastUnit, ENT_QUOTES) ?>"
+                                data-rent="<?= $t['monthly_rent'] ?>"
+                                data-balance="<?= $t['balance'] ?? 0 ?>"
+                                data-movein="<?= htmlspecialchars($t['move_in_date'] ?? '', ENT_QUOTES) ?>"
+                                data-status="inactive"
+                                data-username="<?= htmlspecialchars($t['username'] ?? '', ENT_QUOTES) ?>"
+                                data-password="<?= htmlspecialchars($t['password'] ?? '', ENT_QUOTES) ?>">
+                                <i class="bi bi-pencil-square"></i>
+                              </button>
+                              <!-- Delete Button -->
+                              <form method="POST" action="tenants.php" class="d-inline ml-1" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to PERMANENTLY delete <?= htmlspecialchars(addslashes($t['full_name'])) ?>:'); if(!pwd) return false; this.admin_password.value = pwd; return true;">
+                                <input type="hidden" name="action" value="delete_tenant">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <input type="hidden" name="admin_password" value="">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Permanently Delete"><i class="bi bi-trash3"></i></button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: RELOCATION & UNIT TRANSFER LOGS -->
+          <div class="tab-pane fade" id="tabTransfersHistory" role="tabpanel">
+            <div class="ebh-card mb-4">
+              <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white">
+                <div>
+                  <h6 class="mb-0 fw-bold text-navy"><i class="bi bi-journal-text text-primary me-2"></i> Tenant Relocation & Unit Transfer Audit Trail</h6>
+                  <small class="text-muted">Safeguarded chronological record of every unit transfer and move-out event.</small>
+                </div>
+                <span class="badge badge-light border text-primary px-2 py-1"><i class="bi bi-shield-check me-1"></i> Transaction Safe</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-ebh table-hover mb-0">
+                  <thead>
+                    <tr>
+                      <th>Resident Name</th>
+                      <th>Event Type</th>
+                      <th>From Unit</th>
+                      <th>To Unit</th>
+                      <th>Reason / Note</th>
+                      <th>Authorized By</th>
+                      <th>Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if (empty($transferLogs)): ?>
+                      <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No unit relocation events logged yet.</td>
+                      </tr>
+                    <?php else: ?>
+                      <?php foreach ($transferLogs as $log): ?>
+                        <tr>
+                          <td class="fw-bold text-navy"><?= htmlspecialchars($log['full_name']) ?></td>
+                          <td>
+                            <?php if ($log['transfer_type'] === 'transfer'): ?>
+                              <span class="badge badge-primary px-2 py-1"><i class="bi bi-arrow-left-right me-1"></i> Unit Transfer</span>
+                            <?php elseif ($log['transfer_type'] === 'move_out'): ?>
+                              <span class="badge badge-secondary px-2 py-1"><i class="bi bi-box-arrow-right me-1"></i> Move Out</span>
+                            <?php else: ?>
+                              <span class="badge badge-success px-2 py-1"><i class="bi bi-box-arrow-in-right me-1"></i> Move In</span>
+                            <?php endif; ?>
+                          </td>
+                          <td>
+                            <?= $log['from_unit'] ? '<span class="badge badge-light border font-weight-bold">Unit ' . htmlspecialchars($log['from_unit']) . '</span>' : '<span class="text-muted">None</span>' ?>
+                          </td>
+                          <td>
+                            <?= $log['to_unit'] ? '<span class="badge badge-success px-2 py-1 font-weight-bold">Unit ' . htmlspecialchars($log['to_unit']) . '</span>' : '<span class="text-muted">Vacated</span>' ?>
+                          </td>
+                          <td><small class="text-muted"><?= htmlspecialchars($log['reason'] ?: 'Unit Relocation') ?></small></td>
+                          <td><small class="text-dark fw-semibold"><?= htmlspecialchars($log['authorized_by'] ?: 'Admin') ?></small></td>
+                          <td><small class="text-muted"><?= date('M j, Y g:i A', strtotime($log['created_at'])) ?></small></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -536,9 +899,10 @@ $adminUser = $_SESSION['user'];
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <form method="POST" action="tenants.php">
+        <form id="editTenantForm" method="POST" action="tenants.php" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to confirm changes:'); if(!pwd) { return false; } document.getElementById('editAdminPassword').value = pwd; return true;">
           <input type="hidden" name="action" value="edit_tenant">
           <input type="hidden" id="editTenantId" name="id">
+          <input type="hidden" id="editAdminPassword" name="admin_password" value="">
           <div class="modal-body p-4">
             <div class="row g-3">
               <div class="col-12">
@@ -584,46 +948,87 @@ $adminUser = $_SESSION['user'];
                 </select>
               </div>
 
-              <!-- Portal Account Credentials Edit Section -->
+              <!-- Portal Account Credentials Edit Section (Directly Visible & Editable) -->
               <div class="col-12 pt-2 border-top">
                 <span class="small fw-bold text-navy d-block mb-2"><i class="bi bi-shield-lock-fill text-primary me-1"></i> Tenant Portal Account Login</span>
               </div>
               <div class="col-md-6">
-                <label for="editTenantUsername" class="form-label small fw-bold text-navy">Username <span id="editTenantUsernameReq" class="text-danger" style="display:none;">*</span></label>
+                <label for="editTenantUsername" class="form-label small fw-bold text-navy">Username</label>
                 <div class="input-group input-group-sm">
                   <div class="input-group-prepend">
                     <span class="input-group-text"><i class="bi bi-person"></i></span>
                   </div>
-                  <input type="text" class="form-control" id="editTenantUsername" name="username" placeholder="Required only if changing password">
+                  <input type="text" class="form-control" id="editTenantUsername" name="username" placeholder="Tenant username">
                 </div>
-                <small class="text-muted" style="font-size:0.72rem;">Only required when updating password</small>
+                <small class="text-muted" style="font-size:0.72rem;">Directly editable tenant username</small>
               </div>
               <div class="col-md-6">
-                <label for="editTenantPassword" class="form-label small fw-bold text-navy">Reset / Change Password</label>
+                <label for="editTenantPassword" class="form-label small fw-bold text-navy">Password</label>
                 <div class="input-group input-group-sm">
                   <div class="input-group-prepend">
                     <span class="input-group-text"><i class="bi bi-key"></i></span>
                   </div>
-                  <input type="text" class="form-control" id="editTenantPassword" name="password" placeholder="Leave blank to keep unchanged">
+                  <input type="text" class="form-control" id="editTenantPassword" name="password" placeholder="Tenant password">
                 </div>
-                <small class="text-muted" style="font-size:0.72rem;">Enter new password only if updating</small>
-              </div>
-
-              <!-- Admin Security Re-Authentication Check -->
-              <div class="col-12 pt-3 border-top mt-3">
-                <div class="p-2.5 rounded bg-light border border-warning">
-                  <label for="editAdminPassword" class="form-label small fw-bold text-navy mb-1">
-                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Admin Authorization Password <span class="text-danger">*</span>
-                  </label>
-                  <input type="password" class="form-control form-control-sm" id="editAdminPassword" name="admin_password" required placeholder="Enter YOUR admin password to confirm update">
-                  <small class="text-muted" style="font-size:0.72rem;">Security verification: Confirm identity before modifying resident credentials or details.</small>
-                </div>
+                <small class="text-muted" style="font-size:0.72rem;">Directly visible & editable tenant password</small>
               </div>
             </div>
           </div>
           <div class="modal-footer bg-light">
             <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-save me-1"></i> Save Changes</button>
+            <button type="submit" class="btn btn-ebh-primary btn-sm"><i class="bi bi-save me-1"></i> Apply Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Move / Relocate Tenant to Another Unit -->
+  <div class="modal fade" id="moveTenantModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-navy text-white">
+          <h5 class="modal-title fw-bold text-white mb-0"><i class="bi bi-arrow-left-right me-2 text-warning"></i> Move / Reassign Tenant Unit</h5>
+          <button type="button" class="close text-white border-0 bg-transparent" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <form method="POST" action="tenants.php" onsubmit="const pwd = prompt('SECURITY CHECK: Enter your Admin Password to authorize unit transfer:'); if(!pwd) { return false; } document.getElementById('moveAdminPassword').value = pwd; return true;">
+          <input type="hidden" name="action" value="move_tenant">
+          <input type="hidden" id="moveTenantId" name="id">
+          <input type="hidden" id="moveAdminPassword" name="admin_password" value="">
+          <div class="modal-body p-4">
+            <div class="alert alert-info py-2 px-3 small mb-3">
+              <i class="bi bi-shield-check me-1"></i> <strong>Safeguard Active:</strong> Moving a tenant will safely vacate their current unit, mark the destination unit occupied, adjust rent rate, and write an immutable transfer audit log.
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-navy">Resident Name</label>
+              <input type="text" class="form-control" id="moveTenantName" readonly style="background-color: #f8f9fa;">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-navy">Current Assigned Unit</label>
+              <input type="text" class="form-control" id="moveTenantCurrentUnit" readonly style="background-color: #f8f9fa;">
+            </div>
+            <div class="mb-3">
+              <label for="moveToUnit" class="form-label small fw-bold text-navy">Select New Destination Unit <span class="text-danger">*</span></label>
+              <select class="form-control" id="moveToUnit" name="to_unit" required>
+                <option value="" disabled selected>Choose available unit...</option>
+                <?php foreach ($allRooms as $r): ?>
+                  <option value="<?= htmlspecialchars($r['unit_code']) ?>" data-rate="<?= $r['monthly_rate'] ?>" <?= $r['status'] === 'occupied' ? 'disabled' : '' ?>>
+                    Unit <?= htmlspecialchars($r['unit_code']) ?> (<?= htmlspecialchars($r['room_type']) ?> - ₱<?= number_format($r['monthly_rate'], 2) ?>/mo) <?= $r['status'] === 'occupied' ? '[Currently Occupied]' : '[Available]' ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+              <small class="text-muted">Occupied units are disabled by safeguards to avoid conflicting assignments.</small>
+            </div>
+            <div class="mb-3">
+              <label for="moveReason" class="form-label small fw-bold text-navy">Reason / Transfer Note</label>
+              <input type="text" class="form-control" id="moveReason" name="reason" placeholder="e.g. Upgrading from BH room to Private House" value="Unit Relocation">
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i> Authorize & Move Unit</button>
           </div>
         </form>
       </div>
@@ -636,32 +1041,28 @@ $adminUser = $_SESSION['user'];
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
   <script src="../assets/js/script.js"></script>
   <script>
-    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username) {
+    function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username, password) {
       $('#editTenantId').val(id);
       $('#editTenantName').val(name);
       $('#editTenantContact').val(phone);
       $('#editTenantEmail').val(email || '');
-      $('#editTenantRoom').val(unit);
+      $('#editTenantRoom').val((unit || '').replace('Unit ', '').trim());
       $('#editTenantRent').val(rent);
       $('#editTenantBalance').val(balance !== undefined && balance !== null ? balance : 0);
       $('#editTenantMoveIn').val(moveIn);
       $('#editTenantStatus').val(status || 'active');
-      $('#editTenantUsername').val(username || '').prop('required', false);
-      $('#editTenantUsernameReq').hide();
-      $('#editTenantPassword').val('');
+      $('#editTenantUsername').val(username || '');
+      $('#editTenantPassword').val(password || '');
       $('#editTenantModal').modal('show');
     }
 
-    // Conditional requirement: username is only required when new password is typed
-    $('#editTenantPassword').on('input', function() {
-      const hasPwd = $(this).val().trim().length > 0;
-      $('#editTenantUsername').prop('required', hasPwd);
-      if (hasPwd) {
-        $('#editTenantUsernameReq').show();
-      } else {
-        $('#editTenantUsernameReq').hide();
-      }
-    });
+    function openMoveTenantModal(id, name, currentUnit) {
+      $('#moveTenantId').val(id);
+      $('#moveTenantName').val(name);
+      $('#moveTenantCurrentUnit').val(currentUnit ? 'Unit ' + currentUnit.replace('Unit ', '').trim() : 'Unassigned / None');
+      $('#moveToUnit').val('');
+      $('#moveTenantModal').modal('show');
+    }
 
     $(document).on('click', '.btn-edit-tenant', function(e) {
       e.preventDefault();
@@ -676,8 +1077,19 @@ $adminUser = $_SESSION['user'];
       const moveIn = btn.data('movein');
       const status = btn.data('status');
       const username = btn.data('username');
+      const password = btn.data('password');
 
-      openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username);
+      openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username, password);
+    });
+
+    $(document).on('click', '.btn-move-tenant', function(e) {
+      e.preventDefault();
+      const btn = $(this);
+      const id = btn.data('id');
+      const name = btn.data('name');
+      const unit = btn.data('unit');
+
+      openMoveTenantModal(id, name, unit);
     });
 
     // Automatically synchronize monthly rent when unit is changed in edit modal
@@ -687,6 +1099,15 @@ $adminUser = $_SESSION['user'];
       if (rate) {
         $('#editTenantRent').val(rate);
       }
+    });
+
+    // Universal Search Bar across active and inactive tabs
+    $('#tenantSearchInput').on('keyup', function() {
+      const q = $(this).val().toLowerCase().trim();
+      $('#activeTenantsTable tbody tr, #inactiveTenantsTable tbody tr').each(function() {
+        const text = $(this).text().toLowerCase();
+        $(this).toggle(text.indexOf(q) > -1);
+      });
     });
   </script>
 </body>

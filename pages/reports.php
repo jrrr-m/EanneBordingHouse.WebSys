@@ -161,7 +161,6 @@ $adminUser = $_SESSION['user'];
               <div>
                 <div class="kpi-title">Verified Collections</div>
                 <div class="kpi-value text-navy">₱<?= number_format($verifiedTotal, 2) ?></div>
-                <small class="text-success fw-semibold"><i class="bi bi-shield-check"></i> Recorded in MySQL</small>
               </div>
             </div>
           </div>
@@ -177,10 +176,10 @@ $adminUser = $_SESSION['user'];
           </div>
         </div>
 
-        <!-- 2 Column Financial Breakdown -->
+        <!-- Financial Breakdown -->
         <div class="row g-4 mb-4">
           <!-- Collections Category Analysis -->
-          <div class="col-lg-6">
+          <div class="col-12">
             <div class="ebh-card h-100">
               <div class="ebh-card-header">
                 <h6 class="fw-bold text-navy mb-0"><i class="bi bi-pie-chart-fill me-2 text-primary"></i> Revenue by Room Type (Capacity: ₱<?= number_format($monthlyCapacity) ?>/mo)</h6>
@@ -207,51 +206,6 @@ $adminUser = $_SESSION['user'];
                     <div class="progress-bar bg-warning" role="progressbar" style="width: 100%;"></div>
                   </div>
                   <small class="text-muted mt-1 d-block">Individual private family homes, no shared common areas.</small>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Compound Inclusions & Overhead Policy -->
-          <div class="col-lg-6">
-            <div class="ebh-card h-100">
-              <div class="ebh-card-header">
-                <h6 class="fw-bold text-navy mb-0"><i class="bi bi-info-circle-fill me-2 text-primary"></i> Utility Inclusions & Billing Breakdown</h6>
-                <span class="badge badge-warning text-dark border">Tenant Responsibility</span>
-              </div>
-              <div class="ebh-card-body">
-                <div class="alert alert-info py-2 small mb-3">
-                  <i class="bi bi-exclamation-circle-fill me-1"></i> <strong>Important Policy:</strong> Electricity and water utility bills are excluded from monthly rental rates and are shouldered directly by the tenants.
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-lightning-charge-fill text-warning fs-5"></i>
-                    <div>
-                      <strong class="text-navy d-block">Meralco Electricity Bills</strong>
-                      <small class="text-muted">Individual unit submeters / actual consumption</small>
-                    </div>
-                  </div>
-                  <span class="badge badge-light border text-muted">Excluded (Tenant)</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-water text-info fs-5"></i>
-                    <div>
-                      <strong class="text-navy d-block">Manila Water Service</strong>
-                      <small class="text-muted">Separate metered water usage</small>
-                    </div>
-                  </div>
-                  <span class="badge badge-light border text-muted">Excluded (Tenant)</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-2">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-door-closed-fill text-success fs-5"></i>
-                    <div>
-                      <strong class="text-navy d-block">Room / Space Inclusions</strong>
-                      <small class="text-muted">BH: Room + kitchen + shared CR | Private: Entire house</small>
-                    </div>
-                  </div>
-                  <span class="badge badge-success text-white">Included in Rent</span>
                 </div>
               </div>
             </div>

@@ -97,6 +97,19 @@ try {
             `status` ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+        CREATE TABLE IF NOT EXISTS `tenant_unit_transfers` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `tenant_id` INT NOT NULL,
+            `from_unit` VARCHAR(20) NULL,
+            `to_unit` VARCHAR(20) NULL,
+            `transfer_type` ENUM('transfer', 'move_in', 'move_out') DEFAULT 'transfer',
+            `reason` VARCHAR(255) NULL,
+            `authorized_by` VARCHAR(100) DEFAULT 'Admin',
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX (`tenant_id`),
+            INDEX (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
     if ($isReset) {

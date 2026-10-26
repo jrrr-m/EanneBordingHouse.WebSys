@@ -38,11 +38,28 @@ CREATE TABLE IF NOT EXISTS `users` (
   `phone` VARCHAR(30) NULL,
   `email` VARCHAR(100) NULL,
   `unit_code` VARCHAR(20) NULL,
+  `previous_unit_code` VARCHAR(20) NULL,
   `monthly_rent` DECIMAL(10,2) DEFAULT 0.00,
   `balance` DECIMAL(10,2) DEFAULT 0.00,
   `move_in_date` DATE NULL,
   `lease_status` ENUM('active', 'inactive') DEFAULT 'active',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -------------------------------------------------------
+-- Table: tenant_unit_transfers (Unit Transfer & Move Audit Trail)
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `tenant_unit_transfers` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `tenant_id` INT NOT NULL,
+  `from_unit` VARCHAR(20) NULL,
+  `to_unit` VARCHAR(20) NULL,
+  `transfer_type` ENUM('transfer', 'move_in', 'move_out') DEFAULT 'transfer',
+  `reason` VARCHAR(255) NULL,
+  `authorized_by` VARCHAR(100) DEFAULT 'Admin',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX (`tenant_id`),
+  INDEX (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -------------------------------------------------------

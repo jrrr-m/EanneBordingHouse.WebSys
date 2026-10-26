@@ -1945,7 +1945,7 @@ window.removeTenantRow = function (btn, id, name) {
 };
 
 // Open Edit Tenant Modal (User Maintenance - Edit Function)
-window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, moveIn, status, username) {
+window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, moveIn, status, username, password) {
   $('#editTenantId').val(id);
   $('#editTenantName').val(name);
   $('#editTenantContact').val(phone);
@@ -1954,9 +1954,8 @@ window.openEditTenantModal = function (id, name, phone, email, unitCode, rent, m
   $('#editTenantRoom').val((unitCode || '').replace('Unit ', '').trim());
   $('#editTenantRent').val(rent || 3500);
   $('#editTenantStatus').val(status || 'active');
-  $('#editTenantUsername').val(username || '').prop('required', false);
-  $('#editTenantUsernameReq').hide();
-  $('#editTenantPassword').val('');
+  $('#editTenantUsername').val(username || '');
+  $('#editTenantPassword').val(password || '');
   $('#editTenantModal').modal('show');
 };
 
@@ -2483,7 +2482,7 @@ window.loadTenantsList = function () {
             <td class="text-end">
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${(t.full_name || '').replace(/'/g, "\\'")}', 'Unit ${t.unit_code}', '${(t.room_type || '').replace(/'/g, "\\'")}', '${t.monthly_rent_formatted}', '${(t.phone || '').replace(/'/g, "\\'")}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
-                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}', '${(t.phone || '').replace(/'/g, "\\'")}', '${(t.email || '').replace(/'/g, "\\'")}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', '${(t.username || '').replace(/'/g, "\\'")}')"><i class="bi bi-pencil-square"></i></button>
+                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.phone || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.email || '').replace(/'/g, &quot;\\'&quot;)}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', '${(t.username || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.password || '').replace(/'/g, &quot;\\'&quot;)}')"><i class="bi bi-pencil-square"></i></button>
                 <button type="button" class="btn btn-outline-secondary" title="Mark Move Out / Inactive" onclick="removeTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-box-arrow-right"></i></button>
                 <button type="button" class="btn btn-outline-danger" title="Permanently Delete Tenant Account" onclick="window.deleteTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
               </div>

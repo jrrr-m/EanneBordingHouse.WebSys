@@ -300,9 +300,9 @@ $adminUser = $_SESSION['user'];
                       </td>
                       <td><small class="text-muted"><?= date('M j, Y', strtotime($t['created_at'])) ?></small></td>
                       <td class="text-right">
-                        <div class="btn-group btn-group-sm">
+                        <div class="d-inline-flex align-items-center gap-2">
                           <div class="dropdown d-inline">
-                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Change Status">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Change Status">
                               <i class="bi bi-pencil-square me-1"></i> Status
                             </button>
                             <div class="dropdown-menu dropdown-menu-right shadow-sm border-0">
@@ -333,10 +333,10 @@ $adminUser = $_SESSION['user'];
                               </form>
                             </div>
                           </div>
-                          <form method="POST" action="tickets.php" class="d-inline" onsubmit="return confirm('Delete Ticket #<?= htmlspecialchars($t['ticket_no']) ?>?');">
+                          <form method="POST" action="tickets.php" class="d-inline ml-1" onsubmit="return confirm('Delete Ticket #<?= htmlspecialchars($t['ticket_no']) ?>?');">
                             <input type="hidden" name="action" value="delete_ticket">
                             <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                            <button type="submit" class="btn btn-outline-danger" title="Delete Ticket"><i class="bi bi-trash3"></i></button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Ticket"><i class="bi bi-trash3"></i></button>
                           </form>
                         </div>
                       </td>

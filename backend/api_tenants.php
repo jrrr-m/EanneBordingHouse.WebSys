@@ -98,6 +98,7 @@ if ($method === 'GET') {
             $tenants[] = [
                 'id' => (int)$t['id'],
                 'username' => $t['username'],
+                'password' => $t['password'] ?? '',
                 'full_name' => $t['full_name'],
                 'phone' => $t['phone'] ?? 'N/A',
                 'email' => $t['email'] ?? 'N/A',
