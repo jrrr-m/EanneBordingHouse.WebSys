@@ -49,20 +49,33 @@ $(document).ready(function () {
 
   // 2. Mobile Sidebar Toggle with Backdrop
   const $sidebar = $('.dashboard-sidebar');
-  const $sidebarBtn = $('#sidebarToggleBtn');
-
-  if ($sidebarBtn.length && $sidebar.length) {
-    $sidebarBtn.on('click', function (e) {
-      e.stopPropagation();
-      $sidebar.toggleClass('show');
-    });
-
-    $(document).on('click', function (e) {
-      if ($(window).width() < 992 && !$sidebar.is(e.target) && $sidebar.has(e.target).length === 0 && !$sidebarBtn.is(e.target) && $sidebarBtn.has(e.target).length === 0) {
-        $sidebar.removeClass('show');
-      }
-    });
+  let $backdrop = $('.sidebar-backdrop');
+  if (!$backdrop.length) {
+    $backdrop = $('<div class="sidebar-backdrop"></div>').appendTo('body');
   }
+
+  $(document).on('click', '#sidebarToggleBtn', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('.dashboard-sidebar').toggleClass('show');
+    $('.sidebar-backdrop').toggleClass('show');
+  });
+
+  $(document).on('click', '.sidebar-backdrop', function () {
+    $('.dashboard-sidebar').removeClass('show');
+    $('.sidebar-backdrop').removeClass('show');
+  });
+
+  $(document).on('click', function (e) {
+    if ($(window).width() < 992) {
+      const $sb = $('.dashboard-sidebar');
+      const $btn = $('#sidebarToggleBtn');
+      if ($sb.hasClass('show') && !$sb.is(e.target) && $sb.has(e.target).length === 0 && !$btn.is(e.target) && $btn.has(e.target).length === 0) {
+        $sb.removeClass('show');
+        $('.sidebar-backdrop').removeClass('show');
+      }
+    }
+  });
 
   // 3. Scroll to Top Floating Button
   $(window).on('scroll', function () {

@@ -710,8 +710,39 @@ td form.d-inline + form.d-inline {
 
 /* Mobile Sidebar Drawer */
 @media (max-width: 991.98px) {
-  .dashboard-sidebar { position: fixed; top: 0; bottom: 0; left: -280px; height: 100vh; transition: var(--transition); z-index: 1050; }
-  .dashboard-sidebar.show { left: 0; }
+  .dashboard-sidebar { 
+    position: fixed !important; 
+    top: 0 !important; 
+    bottom: 0 !important; 
+    left: -290px !important; 
+    width: 280px !important;
+    height: 100vh !important; 
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), left 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+    z-index: 1060 !important; 
+    box-shadow: none;
+    overflow-y: auto;
+  }
+  .dashboard-sidebar.show { 
+    left: 0 !important; 
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35) !important;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 18, 41, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1055;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+  }
+  .sidebar-backdrop.show {
+    opacity: 1;
+    visibility: visible;
+  }
   .dashboard-content { padding: 1.25rem; }
   .dashboard-topbar { padding: 0.85rem 1.25rem; }
   .hero-ebh { padding: 3.5rem 0 4.5rem; }
