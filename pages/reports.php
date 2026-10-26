@@ -136,7 +136,7 @@ $adminUser = $_SESSION['user'];
         <!-- 4 Financial KPI Stat Cards -->
         <div class="row g-3 mb-4">
           <div class="col-sm-6 col-xl-3">
-            <div class="kpi-card">
+            <div class="kpi-card h-100">
               <div class="kpi-icon blue"><i class="bi bi-cash-stack"></i></div>
               <div>
                 <div class="kpi-title">Monthly Capacity</div>
@@ -146,7 +146,7 @@ $adminUser = $_SESSION['user'];
             </div>
           </div>
           <div class="col-sm-6 col-xl-3">
-            <div class="kpi-card">
+            <div class="kpi-card h-100">
               <div class="kpi-icon navy"><i class="bi bi-percent"></i></div>
               <div>
                 <div class="kpi-title">Collection Rate</div>
@@ -156,16 +156,17 @@ $adminUser = $_SESSION['user'];
             </div>
           </div>
           <div class="col-sm-6 col-xl-3">
-            <div class="kpi-card">
+            <div class="kpi-card h-100">
               <div class="kpi-icon warning"><i class="bi bi-receipt-cutoff"></i></div>
               <div>
                 <div class="kpi-title">Verified Collections</div>
                 <div class="kpi-value text-navy">₱<?= number_format($verifiedTotal, 2) ?></div>
+                <small class="text-muted"><i class="bi bi-shield-check"></i> Cleared Payments</small>
               </div>
             </div>
           </div>
           <div class="col-sm-6 col-xl-3">
-            <div class="kpi-card">
+            <div class="kpi-card h-100">
               <div class="kpi-icon accent"><i class="bi bi-houses-fill"></i></div>
               <div>
                 <div class="kpi-title">Compound Units</div>

@@ -728,6 +728,8 @@ td form.d-inline + form.d-inline {
   display: flex;
   align-items: center;
   gap: 1.25rem;
+  min-height: 108px;
+  height: 100%;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
