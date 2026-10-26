@@ -48,17 +48,30 @@ $(document).ready(function () {
   };
 
   // 2. Mobile Sidebar Toggle with Backdrop
-  const $sidebar = $('.dashboard-sidebar');
-  let $backdrop = $('.sidebar-backdrop');
-  if (!$backdrop.length) {
-    $backdrop = $('<div class="sidebar-backdrop"></div>').appendTo('body');
-  }
+  window.toggleAdminSidebar = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+    
+    var sb = document.querySelector('.dashboard-sidebar');
+    if (!sb) return;
+
+    var bd = document.querySelector('.sidebar-backdrop');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.className = 'sidebar-backdrop';
+      bd.addEventListener('click', function() {
+        if (sb) sb.classList.remove('show');
+        bd.classList.remove('show');
+      });
+      document.body.appendChild(bd);
+    }
+
+    sb.classList.toggle('show');
+    bd.classList.toggle('show');
+  };
 
   $(document).on('click', '#sidebarToggleBtn', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    $('.dashboard-sidebar').toggleClass('show');
-    $('.sidebar-backdrop').toggleClass('show');
+    window.toggleAdminSidebar(e);
   });
 
   $(document).on('click', '.sidebar-backdrop', function () {

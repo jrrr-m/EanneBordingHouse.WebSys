@@ -393,7 +393,7 @@ $adminUser = $_SESSION['user'];
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   
   <!-- Custom Design System -->
-  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/style.css?v=<?= time() ?>">
   <!-- Business Logo Favicon -->
   <link rel="icon" type="image/png" href="../assets/img/favicon.png">
   <link rel="apple-touch-icon" href="../assets/img/favicon.png">
@@ -440,7 +440,7 @@ $adminUser = $_SESSION['user'];
     <div class="dashboard-main">
       <header class="dashboard-topbar">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" id="sidebarToggleBtn"><i class="bi bi-list fs-5"></i></button>
+          <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button" id="sidebarToggleBtn" onclick="if(window.toggleAdminSidebar){window.toggleAdminSidebar(event);}else{var s=document.querySelector('.dashboard-sidebar');if(s)s.classList.toggle('show');}"><i class="bi bi-list fs-5"></i></button>
           <div>
             <h5 class="mb-0 fw-bold text-navy">Tenants Master Roster</h5>
             <small class="text-muted"><span class="fw-bold text-primary"><?= $activeTenants ?></span> Active Residents Listed (Across 6 Compound Units)</small>
@@ -1039,7 +1039,7 @@ $adminUser = $_SESSION['user'];
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.3/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
-  <script src="../assets/js/script.js"></script>
+  <script src="../assets/js/script.js?v=<?= time() ?>"></script>
   <script>
     function openEditTenantModal(id, name, phone, email, unit, rent, moveIn, status, balance, username, password) {
       $('#editTenantId').val(id);
