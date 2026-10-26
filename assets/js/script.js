@@ -158,59 +158,143 @@ $(document).ready(function () {
     });
   });
 
-  // 6. Interactive Filter Pills (Rooms, Tenants, Payments)
-  $('.btn-filter').on('click', function () {
+  // 6. Interactive Filter Pills (Rooms, Tenants, Payments, Tickets, Gallery)
+  window.applyUnifiedFilter = function ($group, targetSelector) {
+    const $btn = $group.find('.btn-filter.active').first();
+    const filter = ($btn.attr('data-filter') || 'all').toLowerCase().trim();
+    const $items = $(targetSelector || '.filterable-item');
+    if (!$items.length) return;
+
+    // Detect if there is an associated search box on the page
+    let searchTerm = '';
+    if ($('#tenantSearchInput').length && targetSelector.includes('Tenant')) {
+      searchTerm = ($('#tenantSearchInput').val() || '').toLowerCase().trim();
+    } else if ($('#paymentSearchInput').length && targetSelector.includes('payment')) {
+      searchTerm = ($('#paymentSearchInput').val() || '').toLowerCase().trim();
+    } else if ($('#ticketSearchInput').length && targetSelector.includes('Ticket')) {
+      searchTerm = ($('#ticketSearchInput').val() || '').toLowerCase().trim();
+    }
+
+    let matchCount = 0;
+    $items.each(function () {
+      const $item = $(this);
+      const cat = ($item.attr('data-category') || '').toLowerCase();
+      const status = ($item.attr('data-status') || '').toLowerCase();
+      const text = $item.text().toLowerCase();
+
+      // Check filter condition
+      let matchesFilter = false;
+      if (filter === 'all' || !filter) {
+        matchesFilter = true;
+      } else {
+        // Token-based matching or exact match
+        const catTokens = cat.split(/\s+/);
+        matchesFilter = (status === filter) || (catTokens.indexOf(filter) !== -1) || (cat.indexOf(filter) !== -1);
+      }
+
+      // Check search condition
+      let matchesSearch = true;
+      if (searchTerm) {
+        matchesSearch = text.indexOf(searchTerm) !== -1;
+      }
+
+      const show = matchesFilter && matchesSearch;
+      if (show) {
+        $item.show();
+        matchCount++;
+      } else {
+        $item.hide();
+      }
+    });
+
+    // Handle empty state display
+    const isTable = $items.first().is('tr');
+    if (isTable) {
+      const $tbody = $items.first().closest('tbody');
+      $tbody.find('.ebh-empty-filter-row').remove();
+      if (matchCount === 0) {
+        const colSpan = $items.first().children('td').length || 8;
+        $tbody.append(`
+          <tr class="ebh-empty-filter-row">
+            <td colspan="${colSpan}" class="text-center py-4 text-muted">
+              <i class="bi bi-search text-secondary me-2"></i> No matching results found for this filter or search.
+            </td>
+          </tr>
+        `);
+      }
+    } else {
+      // Grid containers (like #roomsGridContainer or #galleryGrid)
+      const $parent = $items.first().parent();
+      $parent.find('.ebh-empty-filter-card').remove();
+      if (matchCount === 0) {
+        $parent.append(`
+          <div class="col-12 text-center py-5 text-muted ebh-empty-filter-card">
+            <i class="bi bi-inbox fs-2 text-secondary d-block mb-2"></i>
+            <h6>No matching items found</h6>
+            <p class="small text-muted mb-0">Try selecting a different filter or clearing search.</p>
+          </div>
+        `);
+      }
+    }
+  };
+
+  $(document).on('click', '.btn-filter', function () {
     const $btn = $(this);
     const $group = $btn.closest('.btn-filter-group');
-    const filter = $btn.attr('data-filter');
     const targetSelector = $btn.attr('data-target-items') || '.filterable-item';
 
     $group.find('.btn-filter').removeClass('active');
     $btn.addClass('active');
 
-    const $items = $(targetSelector);
+    window.applyUnifiedFilter($group, targetSelector);
 
-    if (filter === 'all' || !filter) {
-      $items.each(function (index) {
-        $(this).delay(index * 30).fadeIn(200);
-      });
-    } else {
-      $items.each(function () {
-        const itemCategory = $(this).attr('data-category') || '';
-        const itemStatus = $(this).attr('data-status') || '';
-        if (itemCategory.includes(filter) || itemStatus === filter) {
-          $(this).fadeIn(200);
-        } else {
-          $(this).fadeOut(150);
-        }
-      });
+    // If on tickets page and dynamic renderer exists, let it sync too
+    if (typeof window.renderAdminTicketsTable === 'function' && targetSelector.includes('Ticket')) {
+      window.renderAdminTicketsTable();
     }
   });
 
-  // 7. Interactive Table Search Filtering
+  // 7. Interactive Table Search Filtering (coordinating with filter pills)
   function setupTableSearch(inputId, tableId, countBadgeId) {
     const $input = $(inputId);
     const $table = $(tableId);
     if (!$input.length || !$table.length) return;
 
-    $input.on('keyup', function () {
-      const value = $(this).val().toLowerCase().trim();
-      let matchCount = 0;
+    $input.on('keyup input', function () {
+      const $group = $('.btn-filter-group').has(`[data-target-items*="${tableId.replace('#', '')}"]`);
+      if ($group.length) {
+        const activeTarget = $group.find('.btn-filter.active').attr('data-target-items') || `${tableId} tbody tr`;
+        window.applyUnifiedFilter($group, activeTarget);
+      } else {
+        const value = $(this).val().toLowerCase().trim();
+        let matchCount = 0;
+        $table.find('tbody tr').not('.ebh-empty-filter-row').each(function () {
+          const rowText = $(this).text().toLowerCase();
+          const matches = rowText.indexOf(value) > -1;
+          $(this).toggle(matches);
+          if (matches) matchCount++;
+        });
 
-      $table.find('tbody tr').each(function () {
-        const rowText = $(this).text().toLowerCase();
-        const matches = rowText.indexOf(value) > -1;
-        $(this).toggle(matches);
-        if (matches) matchCount++;
-      });
+        $table.find('.ebh-empty-filter-row').remove();
+        if (matchCount === 0) {
+          const colSpan = $table.find('thead th').length || 8;
+          $table.find('tbody').append(`
+            <tr class="ebh-empty-filter-row">
+              <td colspan="${colSpan}" class="text-center py-4 text-muted">
+                <i class="bi bi-search text-secondary me-2"></i> No matching results found for "${window.escapeHtml(value)}".
+              </td>
+            </tr>
+          `);
+        }
 
-      if (countBadgeId && $(countBadgeId).length) {
-        $(countBadgeId).text(matchCount);
+        if (countBadgeId && $(countBadgeId).length) {
+          $(countBadgeId).text(matchCount);
+        }
       }
     });
   }
 
-  setupTableSearch('#tenantSearchInput', '#tenantsTable', '#tenantCountBadge');
+  setupTableSearch('#tenantSearchInput', '#activeTenantsTable', '#tenantCountBadge');
   setupTableSearch('#paymentSearchInput', '#paymentsTable', '#paymentCountBadge');
   setupTableSearch('#reportsSearchInput', '#reportsTable', '#reportsCountBadge');
 
@@ -630,23 +714,69 @@ $(document).ready(function () {
     });
   }
 
-  // 13. Public Contact & Viewing Form
+  // 13. Public Contact & Viewing Form (Anonymous Visitor Submission)
   const $contactForm = $('#contactViewingForm');
   if ($contactForm.length) {
     $contactForm.on('submit', function (e) {
       e.preventDefault();
-      const $btn = $(this).find('button[type="submit"]');
+      const $form = $(this);
+      const $btn = $form.find('button[type="submit"]');
       const originalText = $btn.html();
+
+      // Reset alert displays
+      $('#contactSuccessAlert').slideUp(150);
+      $('#contactErrorAlert').slideUp(150);
+
+      const fullName = ($form.find('#contactFullName').val() || $form.find('input[type="text"]').not('#contactWebsite').val() || '').trim();
+      const mobile = ($form.find('#contactMobile').val() || $form.find('input[type="tel"]').val() || '').trim();
+      const roomType = $form.find('#contactRoomType').val() || $form.find('select').val() || 'General Inquiry';
+      const preferredDate = $form.find('#contactPreferredDate').val() || $form.find('input[type="date"]').val() || '';
+      const notes = ($form.find('#contactNotes').val() || $form.find('textarea').val() || '').trim();
+      const honeypot = ($form.find('#contactWebsite').val() || '').trim();
+
+      // Client-side validations
+      if (!fullName) {
+        $('#contactErrorMsg').text('Please enter your full name.');
+        $('#contactErrorAlert').slideDown(200);
+        showToast('Required Field', 'Please enter your full name.', 'warning');
+        return;
+      }
+
+      const cleanPhone = mobile.replace(/[^0-9]/g, '');
+      const validPhone = (cleanPhone.length === 11 && cleanPhone.startsWith('09')) || (cleanPhone.length === 12 && cleanPhone.startsWith('639'));
+      if (!validPhone) {
+        $('#contactErrorMsg').text('Please enter a valid Philippine mobile number (e.g. 0917-555-1234 or 09XXXXXXXXX).');
+        $('#contactErrorAlert').slideDown(200);
+        showToast('Invalid Mobile Number', 'Please enter a valid Philippine mobile number (09XX-XXX-XXXX).', 'warning');
+        return;
+      }
+
+      if (!preferredDate) {
+        $('#contactErrorMsg').text('Please select a preferred viewing date.');
+        $('#contactErrorAlert').slideDown(200);
+        showToast('Required Field', 'Please select a preferred viewing date.', 'warning');
+        return;
+      }
+
+      // Check date is not in past
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (preferredDate < todayStr) {
+        $('#contactErrorMsg').text('Preferred viewing date cannot be in the past. Please select today or a future date.');
+        $('#contactErrorAlert').slideDown(200);
+        showToast('Invalid Date', 'Preferred viewing date cannot be in the past.', 'warning');
+        return;
+      }
 
       $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span> Submitting request...');
 
       const postData = {
         action: 'create',
-        user_name: $('#contactFullName').val() || $(this).find('input[type="text"]').val() || '',
-        contact_phone: $('#contactMobile').val() || $(this).find('input[type="tel"]').val() || '',
-        unit_or_type: $('#contactRoomType').val() || $(this).find('select').val() || 'General Inquiry',
-        preferred_date: $('#contactPreferredDate').val() || $(this).find('input[type="date"]').val() || '',
-        notes: $('#contactNotes').val() || $(this).find('textarea').val() || ''
+        user_name: fullName,
+        contact_phone: mobile,
+        unit_or_type: roomType,
+        preferred_date: preferredDate,
+        notes: notes,
+        website: honeypot
       };
 
       $.ajax({
@@ -657,19 +787,30 @@ $(document).ready(function () {
         success: function (res) {
           $btn.prop('disabled', false).html(originalText);
           if (res.success) {
-            $contactForm[0].reset();
+            $form[0].reset();
+            $('#contactErrorAlert').hide();
             $('#contactSuccessAlert').slideDown(250);
-            showToast('Viewing Scheduled', res.message || 'Thank you! The landlord will contact you to confirm your schedule.', 'success');
+            showToast('Viewing Scheduled', res.message || 'Thank you! The caretaker will contact you via SMS to confirm your schedule.', 'success');
             if (typeof window.loadAdminViewingsQueue === 'function') {
               window.loadAdminViewingsQueue();
             }
           } else {
-            showToast('Submission Failed', res.error || 'Could not schedule viewing.', 'danger');
+            const err = res.error || 'Could not schedule viewing.';
+            $('#contactErrorMsg').text(err);
+            $('#contactErrorAlert').slideDown(250);
+            showToast('Submission Failed', err, 'danger');
           }
         },
         error: function (xhr, status, err) {
           $btn.prop('disabled', false).html(originalText);
-          showToast('Connection Error', 'Could not schedule viewing: ' + err, 'danger');
+          let errMsg = 'Connection failed: ' + err;
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed && parsed.error) errMsg = parsed.error;
+          } catch (e) {}
+          $('#contactErrorMsg').text(errMsg);
+          $('#contactErrorAlert').slideDown(250);
+          showToast('Submission Error', errMsg, 'danger');
         }
       });
     });
@@ -1411,24 +1552,28 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
   let proofPhotoHtml = '';
   if (proofImage && proofImage.trim() !== '') {
     const fullProofUrl = window.getEbhUploadUrl(proofImage);
+    const placeholderUrl = '../uploads/payments/receipt_placeholder.svg';
     proofPhotoHtml = `
       <div class="card mb-3 border bg-light shadow-sm overflow-hidden">
         <div class="card-header bg-navy text-white d-flex justify-content-between align-items-center py-2 px-3">
           <span class="small fw-bold"><i class="bi bi-image me-1 text-info"></i> Uploaded Proof of Payment</span>
-          <a href="${fullProofUrl}" target="_blank" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:0.75rem;"><i class="bi bi-box-arrow-up-right me-1"></i> Open Full Image</a>
+          <div class="d-flex gap-1">
+            <a href="${fullProofUrl}" target="_blank" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:0.75rem;" title="Open in new tab"><i class="bi bi-box-arrow-up-right me-1"></i> Open in New Tab</a>
+            <a href="${fullProofUrl}" download="payment_receipt_${refNum}.jpg" class="btn btn-sm btn-light py-0 px-2" style="font-size:0.75rem;" title="Download proof"><i class="bi bi-download me-1"></i> Download</a>
+          </div>
         </div>
-        <div class="card-body p-2 text-center bg-dark" style="border-radius: 0 0 4px 4px;">
-          <a href="${fullProofUrl}" target="_blank" title="Click to view full photo">
-            <img src="${fullProofUrl}" alt="Proof of Payment" class="img-fluid rounded" style="max-height: 260px; object-fit: contain;">
+        <div class="card-body p-2 text-center bg-dark" style="border-radius: 0 0 4px 4px; min-height:160px; display:flex; align-items:center; justify-content:center;">
+          <a href="${fullProofUrl}" target="_blank" title="Click to view enlarged photo">
+            <img src="${fullProofUrl}" alt="Proof of Payment" class="img-fluid rounded shadow" style="max-height: 280px; object-fit: contain; cursor: zoom-in;" onerror="this.onerror=null; this.src='${placeholderUrl}'; this.parentElement.removeAttribute('href'); this.title='Image could not be loaded';">
           </a>
         </div>
       </div>
     `;
   } else {
     proofPhotoHtml = `
-      <div class="alert alert-light border small text-muted mb-3 d-flex align-items-center gap-2">
-        <i class="bi bi-receipt-cutoff fs-3 text-secondary"></i>
-        <div><strong>Digital / Walk-in Payment:</strong> Logged directly into the system. Official digital voucher generated below.</div>
+      <div class="alert alert-secondary border small text-muted mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-image text-secondary fs-4"></i>
+        <div><strong>No image uploaded:</strong> Walk-in cash or manual ledger payment without attachment. Official digital payment voucher generated below.</div>
       </div>
     `;
   }
@@ -1456,6 +1601,12 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
             <small class="text-muted d-block"><i class="bi bi-info-circle me-1"></i> The tenant has been prompted to re-submit valid proof with matching transaction reference number.</small>
           </div>
         </div>
+      </div>
+    `;
+  } else if (notes && notes.trim() !== '') {
+    rejectionNoticeHtml = `
+      <div class="alert alert-info border mb-3 p-2 rounded small">
+        <i class="bi bi-info-circle me-1"></i> <strong>Admin Notes:</strong> ${window.escapeHtml(notes)}
       </div>
     `;
   }
@@ -1744,6 +1895,36 @@ window.loadAdminPendingQueue = function () {
       }
     }
   });
+};
+
+// Update Viewing Request Status via AJAX
+window.updateAdminViewingStatus = function (id, newStatus) {
+  if (!id || !newStatus) return;
+  $.ajax({
+    url: window.getEbhApiUrl('api_viewings.php'),
+    type: 'POST',
+    data: {
+      action: 'update_status',
+      id: id,
+      status: newStatus
+    },
+    dataType: 'json',
+    success: function (res) {
+      if (res.success) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Viewing request updated to ' + newStatus, 'success');
+        }
+        window.loadAdminViewingsQueue();
+      } else {
+        alert(res.message || 'Failed to update status.');
+      }
+    },
+    error: function () {
+      alert('Network error updating viewing status.');
+    }
+  });
+};
+
 // Fetch and Populate Viewings Queue Table on admin-dashboard from MySQL
 window.loadAdminViewingsQueue = function () {
   const $tbody = $('#adminViewingsTable tbody');
@@ -1756,47 +1937,29 @@ window.loadAdminViewingsQueue = function () {
     success: function (res) {
       if (res.success && res.requests && res.requests.length) {
         let html = '';
+        let pendingCount = 0;
         res.requests.forEach(function (vr) {
           const initials = (vr.user_name || 'VR').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
           const isPending = vr.status === 'pending';
           const isConfirmed = vr.status === 'confirmed';
+          const isDeclined = vr.status === 'declined';
           const isCompleted = vr.status === 'completed';
 
-          let statusBadge = `<span class="badge badge-danger">${vr.status}</span>`;
+          if (isPending) pendingCount++;
+
+          let statusBadge = `<span class="badge badge-secondary">${vr.status}</span>`;
           if (isPending) {
             statusBadge = `<span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span>`;
           } else if (isConfirmed) {
             statusBadge = `<span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Confirmed</span>`;
+          } else if (isDeclined) {
+            statusBadge = `<span class="badge badge-danger"><i class="bi bi-x-circle"></i> Declined</span>`;
           } else if (isCompleted) {
             statusBadge = `<span class="badge badge-secondary"><i class="bi bi-check-all"></i> Completed</span>`;
           }
 
-          let actionsHtml = '<span class="text-muted small">&mdash;</span>';
-          if (isPending) {
-            actionsHtml = `
-              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Confirm viewing visit for ${window.escapeJs(vr.user_name)}?');">
-                <input type="hidden" name="action" value="update_viewing_status">
-                <input type="hidden" name="viewing_id" value="${vr.id}">
-                <input type="hidden" name="status" value="confirmed">
-                <button type="submit" class="btn btn-sm btn-primary" title="Confirm Appointment"><i class="bi bi-check-lg"></i> Confirm</button>
-              </form>
-              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Cancel this viewing request?');">
-                <input type="hidden" name="action" value="update_viewing_status">
-                <input type="hidden" name="viewing_id" value="${vr.id}">
-                <input type="hidden" name="status" value="cancelled">
-                <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel"><i class="bi bi-x-lg"></i></button>
-              </form>
-            `;
-          } else if (isConfirmed) {
-            actionsHtml = `
-              <form method="POST" action="admin-dashboard.php" class="d-inline">
-                <input type="hidden" name="action" value="update_viewing_status">
-                <input type="hidden" name="viewing_id" value="${vr.id}">
-                <input type="hidden" name="status" value="completed">
-                <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed"><i class="bi bi-check-all"></i> Done</button>
-              </form>
-            `;
-          }
+          const safePhone = window.escapeJs(vr.contact_phone || '');
+          const safeName = window.escapeJs(vr.user_name || '');
 
           html += `
             <tr class="${isPending ? 'table-warning' : ''}" id="viewing-row-${vr.id}">
@@ -1804,31 +1967,59 @@ window.loadAdminViewingsQueue = function () {
                 <div class="d-flex align-items-center gap-2">
                   <div class="avatar-circle sm bg-light border text-navy">${initials}</div>
                   <div>
-                    <strong class="text-navy d-block">${vr.user_name}</strong>
-                    ${vr.notes ? `<small class="text-muted d-block text-truncate" style="max-width:200px;" title="${window.escapeJs(vr.notes)}"><i class="bi bi-chat-left-text me-1"></i>${vr.notes}</small>` : ''}
+                    <strong class="text-navy d-block">${window.escapeJs(vr.user_name)}</strong>
+                    ${vr.notes ? `<small class="text-muted d-block text-truncate" style="max-width:200px;" title="${window.escapeJs(vr.notes)}"><i class="bi bi-chat-left-text me-1"></i>${window.escapeJs(vr.notes)}</small>` : ''}
                   </div>
                 </div>
               </td>
               <td>
-                <a href="tel:${vr.contact_phone}" class="fw-semibold text-navy text-decoration-none">
-                  <i class="bi bi-telephone text-primary me-1"></i>${vr.contact_phone}
-                </a>
+                <div class="d-flex align-items-center gap-1">
+                  <a href="tel:${safePhone}" class="fw-semibold text-navy text-decoration-none" title="Call or SMS via cellular">
+                    <i class="bi bi-telephone text-primary me-1"></i>${safePhone}
+                  </a>
+                  <button type="button" class="btn btn-sm btn-link text-muted p-0 px-1 border-0" title="Copy Mobile Number" onclick="if(navigator.clipboard){navigator.clipboard.writeText('${safePhone}');alert('Phone number copied: ${safePhone}');}">
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                </div>
               </td>
               <td>
-                <span class="badge badge-light border text-navy"><i class="bi bi-door-open me-1"></i>${vr.unit_or_type}</span>
+                <span class="badge badge-light border text-navy"><i class="bi bi-door-open me-1"></i>${window.escapeJs(vr.unit_or_type)}</span>
               </td>
               <td>
                 <small class="fw-semibold text-navy d-block"><i class="bi bi-calendar-event text-primary me-1"></i>${vr.preferred_date_formatted || vr.preferred_date}</small>
                 <small class="text-muted" style="font-size:0.75rem;">Submitted ${vr.created_at_formatted || vr.created_at}</small>
               </td>
               <td>${statusBadge}</td>
-              <td class="text-end">${actionsHtml}</td>
+              <td class="text-end">
+                <select class="form-control form-control-sm custom-select custom-select-sm d-inline-block w-auto" onchange="window.updateAdminViewingStatus(${vr.id}, this.value)">
+                  <option value="pending" ${isPending ? 'selected' : ''}>Pending</option>
+                  <option value="confirmed" ${isConfirmed ? 'selected' : ''}>Confirmed</option>
+                  <option value="declined" ${isDeclined ? 'selected' : ''}>Declined</option>
+                  <option value="completed" ${isCompleted ? 'selected' : ''}>Completed</option>
+                </select>
+              </td>
             </tr>
           `;
         });
         $tbody.html(html);
+
+        // Update badges
+        const $badge = $('#viewingPendingBadge');
+        if ($badge.length) {
+          $badge.text(pendingCount + ' Pending');
+          $badge.removeClass('badge-warning badge-success text-dark text-white')
+            .addClass(pendingCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white');
+        }
+        const $sideBadge = $('#sidebarViewingsBadge');
+        if ($sideBadge.length) {
+          $sideBadge.text(pendingCount);
+          $sideBadge.removeClass('badge-warning badge-secondary text-dark text-white')
+            .addClass(pendingCount > 0 ? 'badge-warning text-dark' : 'badge-secondary text-white');
+        }
       } else {
         $tbody.html('<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-calendar-x text-muted fs-3 d-block mb-1"></i>No viewing schedule requests received yet.</td></tr>');
+        $('#viewingPendingBadge').text('0 Pending').removeClass('badge-warning text-dark').addClass('badge-success text-white');
+        $('#sidebarViewingsBadge').text('0').removeClass('badge-warning text-dark').addClass('badge-secondary text-white');
       }
     }
   });
@@ -2508,7 +2699,7 @@ window.loadTenantsList = function () {
             <td class="text-end">
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn btn-outline-primary" title="View Profile" onclick="showTenantDetails('${(t.full_name || '').replace(/'/g, "\\'")}', 'Unit ${t.unit_code}', '${(t.room_type || '').replace(/'/g, "\\'")}', '${t.monthly_rent_formatted}', '${(t.phone || '').replace(/'/g, "\\'")}', '${t.move_in_date}')"><i class="bi bi-eye"></i></button>
-                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${(t.full_name || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.phone || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.email || '').replace(/'/g, &quot;\\'&quot;)}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', '${(t.username || '').replace(/'/g, &quot;\\'&quot;)}', '${(t.password || '').replace(/'/g, &quot;\\'&quot;)}')"><i class="bi bi-pencil-square"></i></button>
+                <button type="button" class="btn btn-outline-warning" title="Edit Tenant Record" onclick="window.openEditTenantModal(${t.id}, '${window.escapeJs(t.full_name)}', '${window.escapeJs(t.phone)}', '${window.escapeJs(t.email)}', '${t.unit_code}', ${t.monthly_rent}, '${t.move_in_date_raw || ''}', '${t.lease_status}', '${window.escapeJs(t.username)}', '${window.escapeJs(t.password)}')"><i class="bi bi-pencil-square"></i></button>
                 <button type="button" class="btn btn-outline-secondary" title="Mark Move Out / Inactive" onclick="removeTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-box-arrow-right"></i></button>
                 <button type="button" class="btn btn-outline-danger" title="Permanently Delete Tenant Account" onclick="window.deleteTenantRow(this, ${t.id}, '${(t.full_name || '').replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
               </div>
@@ -3030,81 +3221,165 @@ window.updateTicketStatus = function (id, newStatus) {
 };
 
 window.previewTicketDetails = function (id) {
+  function renderTicketModal(t) {
+    const isOp = t.status === 'open';
+    const isInP = t.status === 'in_progress';
+    const isRes = t.status === 'resolved';
+
+    let statusBadge = '';
+    if (isOp) {
+      statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open</span>';
+    } else if (isInP) {
+      statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
+    } else {
+      statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved</span>';
+    }
+
+    const actionBtnsHtml = `
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm ${isOp ? 'btn-warning fw-bold' : 'btn-outline-warning'}" onclick="window.updateTicketStatus(${t.id}, 'open')">
+          <i class="bi bi-clock-history me-1"></i> Open
+        </button>
+        <button type="button" class="btn btn-sm ${isInP ? 'btn-primary fw-bold' : 'btn-outline-primary'}" onclick="window.updateTicketStatus(${t.id}, 'in_progress')">
+          <i class="bi bi-wrench-adjustable me-1"></i> In Progress
+        </button>
+        <button type="button" class="btn btn-sm ${isRes ? 'btn-success fw-bold' : 'btn-outline-success'}" onclick="window.updateTicketStatus(${t.id}, 'resolved')">
+          <i class="bi bi-check2-circle me-1"></i> Resolved
+        </button>
+      </div>
+    `;
+
+    function esc(s) {
+      if (!s) return '';
+      return $('<div>').text(s).html();
+    }
+
+    // Parse attachments (could be JSON array string, comma-separated, or single file path)
+    let images = [];
+    if (t.attachment_images) {
+      if (Array.isArray(t.attachment_images)) {
+        images = t.attachment_images;
+      } else if (typeof t.attachment_images === 'string') {
+        const raw = t.attachment_images.trim();
+        if (raw.startsWith('[') && raw.endsWith(']')) {
+          try {
+            images = JSON.parse(raw);
+          } catch (e) {
+            images = [raw];
+          }
+        } else if (raw) {
+          images = raw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+    }
+
+    let imagesHtml = '';
+    if (images && images.length > 0) {
+      let thumbsHtml = '';
+      images.forEach(function (imgSrc, idx) {
+        const fullUrl = window.getEbhUploadUrl(imgSrc);
+        thumbsHtml += `
+          <div class="col-6 col-md-4 mb-2">
+            <div class="border rounded bg-dark p-1 text-center position-relative overflow-hidden" style="height: 140px; display: flex; align-items: center; justify-content: center;">
+              <a href="${fullUrl}" target="_blank" title="Click to open full photo">
+                <img src="${fullUrl}" alt="Attachment ${idx + 1}" class="img-fluid rounded" style="max-height: 130px; object-fit: contain; cursor: zoom-in;" onerror="this.onerror=null; this.src='../uploads/payments/receipt_placeholder.svg'; this.parentElement.removeAttribute('href'); this.title='Image could not be loaded';">
+              </a>
+              <div class="position-absolute bottom-0 end-0 p-1">
+                <a href="${fullUrl}" download="ticket_${esc(t.ticket_no)}_img_${idx + 1}.jpg" class="btn btn-xs btn-light shadow-sm py-0 px-1" title="Download Image"><i class="bi bi-download"></i></a>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      imagesHtml = `
+        <div class="card mb-3 border bg-light shadow-sm">
+          <div class="card-header bg-navy text-white d-flex justify-content-between align-items-center py-2 px-3">
+            <span class="small fw-bold"><i class="bi bi-images me-1 text-info"></i> Attached Photos & Receipts (${images.length})</span>
+            <small class="text-white-50">Click any image to enlarge or open in new tab</small>
+          </div>
+          <div class="card-body p-3">
+            <div class="row g-2">
+              ${thumbsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      imagesHtml = `
+        <div class="alert alert-secondary border small text-muted mb-3 d-flex align-items-center gap-2">
+          <i class="bi bi-image text-secondary fs-4"></i>
+          <div><strong>No image uploaded:</strong> No photos or repair receipts were attached to this ticket.</div>
+        </div>
+      `;
+    }
+
+    const modalHtml = `
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <div>
+          <h5 class="fw-bold text-navy mb-0">Ticket #${esc(t.ticket_no)}</h5>
+          <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> Logged on ${esc(t.created_at || t.created_at_short)}</small>
+        </div>
+        <div>${statusBadge}</div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+          <label class="small text-muted d-block mb-1">Tenant / Reporter</label>
+          <strong class="text-navy">${esc(t.tenant_name)}</strong>
+        </div>
+        <div class="col-sm-6">
+          <label class="small text-muted d-block mb-1">Unit Assignment</label>
+          <span class="badge bg-light text-navy border font-weight-bold">${esc(t.unit_code)}</span>
+        </div>
+        <div class="col-sm-6">
+          <label class="small text-muted d-block mb-1">Category</label>
+          <span class="badge bg-primary text-white">${esc(t.category)}</span>
+        </div>
+        <div class="col-sm-6">
+          <label class="small text-muted d-block mb-1">Urgency Priority</label>
+          <span class="fw-bold ${t.is_urgent ? 'text-danger' : 'text-navy'}"><i class="bi bi-flag-fill me-1"></i> ${esc(t.urgency)}</span>
+        </div>
+      </div>
+
+      <div class="p-3 bg-light rounded-3 border mb-3">
+        <label class="small fw-bold text-navy d-block mb-1"><i class="bi bi-chat-left-text me-1"></i> Problem Description & Notes</label>
+        <p class="mb-0 text-dark small" style="white-space: pre-wrap;">${esc(t.description)}</p>
+      </div>
+
+      ${imagesHtml}
+
+      ${t.resolved_at ? `<div class="small text-success mt-2"><i class="bi bi-check-circle me-1"></i> <strong>Resolved At:</strong> ${esc(t.resolved_at)}</div>` : ''}
+    `;
+
+    $('#viewTicketModalBody').html(modalHtml);
+    $('#viewTicketActionBtns').html(actionBtnsHtml);
+    $('#viewTicketModal').modal('show');
+  }
+
   const tickets = window.ebhAdminTicketsCache || [];
   const t = tickets.find(item => item.id == id);
-  if (!t) return;
-
-  const isOp = t.status === 'open';
-  const isInP = t.status === 'in_progress';
-  const isRes = t.status === 'resolved';
-
-  let statusBadge = '';
-  if (isOp) {
-    statusBadge = '<span class="badge-ebh badge-open"><i class="bi bi-clock"></i> Open</span>';
-  } else if (isInP) {
-    statusBadge = '<span class="badge-ebh badge-in-progress"><i class="bi bi-gear-wide-connected"></i> In Progress</span>';
+  if (t) {
+    renderTicketModal(t);
   } else {
-    statusBadge = '<span class="badge-ebh badge-verified"><i class="bi bi-check-circle-fill"></i> Resolved</span>';
+    // Fetch directly from API
+    $.ajax({
+      url: window.getEbhApiUrl('api_tickets.php'),
+      type: 'GET',
+      dataType: 'json',
+      success: function (res) {
+        if (res.success && res.tickets) {
+          window.ebhAdminTicketsCache = res.tickets;
+          const found = res.tickets.find(item => item.id == id);
+          if (found) {
+            renderTicketModal(found);
+          } else {
+            showToast('Ticket Details', 'Ticket record not found.', 'warning');
+          }
+        }
+      }
+    });
   }
-
-  const actionBtnsHtml = `
-    <div class="d-flex gap-2">
-      <button type="button" class="btn btn-sm ${isOp ? 'btn-warning fw-bold' : 'btn-outline-warning'}" onclick="window.updateTicketStatus(${t.id}, 'open')">
-        <i class="bi bi-clock-history me-1"></i> Open
-      </button>
-      <button type="button" class="btn btn-sm ${isInP ? 'btn-primary fw-bold' : 'btn-outline-primary'}" onclick="window.updateTicketStatus(${t.id}, 'in_progress')">
-        <i class="bi bi-wrench-adjustable me-1"></i> In Progress
-      </button>
-      <button type="button" class="btn btn-sm ${isRes ? 'btn-success fw-bold' : 'btn-outline-success'}" onclick="window.updateTicketStatus(${t.id}, 'resolved')">
-        <i class="bi bi-check2-circle me-1"></i> Resolved
-      </button>
-    </div>
-  `;
-
-  function esc(s) {
-    if (!s) return '';
-    return $('<div>').text(s).html();
-  }
-
-  const modalHtml = `
-    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-      <div>
-        <h5 class="fw-bold text-navy mb-0">Ticket #${esc(t.ticket_no)}</h5>
-        <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> Logged on ${esc(t.created_at)}</small>
-      </div>
-      <div>${statusBadge}</div>
-    </div>
-
-    <div class="row g-3 mb-3">
-      <div class="col-sm-6">
-        <label class="small text-muted d-block mb-1">Tenant / Reporter</label>
-        <strong class="text-navy">${esc(t.tenant_name)}</strong>
-      </div>
-      <div class="col-sm-6">
-        <label class="small text-muted d-block mb-1">Unit Assignment</label>
-        <span class="badge bg-light text-navy border font-weight-bold">${esc(t.unit_code)}</span>
-      </div>
-      <div class="col-sm-6">
-        <label class="small text-muted d-block mb-1">Category</label>
-        <span class="badge bg-primary text-white">${esc(t.category)}</span>
-      </div>
-      <div class="col-sm-6">
-        <label class="small text-muted d-block mb-1">Urgency Priority</label>
-        <span class="fw-bold ${t.is_urgent ? 'text-danger' : 'text-navy'}"><i class="bi bi-flag-fill me-1"></i> ${esc(t.urgency)}</span>
-      </div>
-    </div>
-
-    <div class="p-3 bg-light rounded-3 border mb-3">
-      <label class="small fw-bold text-navy d-block mb-1"><i class="bi bi-chat-left-text me-1"></i> Problem Description & Notes</label>
-      <p class="mb-0 text-dark small" style="white-space: pre-wrap;">${esc(t.description)}</p>
-    </div>
-
-    ${t.resolved_at ? `<div class="small text-success"><i class="bi bi-check-circle me-1"></i> <strong>Resolved At:</strong> ${esc(t.resolved_at)}</div>` : ''}
-  `;
-
-  $('#viewTicketModalBody').html(modalHtml);
-  $('#viewTicketActionBtns').html(actionBtnsHtml);
-  $('#viewTicketModal').modal('show');
 };
 
 

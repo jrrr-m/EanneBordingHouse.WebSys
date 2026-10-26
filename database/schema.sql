@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS `maintenance_tickets` (
   `category` VARCHAR(50) NOT NULL,
   `urgency` VARCHAR(20) DEFAULT 'Normal',
   `description` TEXT NOT NULL,
+  `attachment_images` TEXT NULL,
   `status` ENUM('open', 'in_progress', 'resolved') DEFAULT 'open',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `resolved_at` DATETIME NULL
@@ -114,7 +115,7 @@ CREATE TABLE IF NOT EXISTS `viewing_requests` (
   `unit_or_type` VARCHAR(100) NOT NULL,
   `preferred_date` DATE NOT NULL,
   `notes` TEXT NULL,
-  `status` ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+  `status` ENUM('pending', 'confirmed', 'declined', 'cancelled', 'completed') DEFAULT 'pending',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

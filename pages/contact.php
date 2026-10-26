@@ -94,15 +94,28 @@
                 <p class="small mb-0">Thank you! Your schedule request has been logged. Our caretaker will text you at your provided mobile number.</p>
               </div>
 
-              <form id="contactViewingForm">
+              <!-- Error Alert -->
+              <div class="alert alert-danger border-danger" id="contactErrorAlert" style="display:none;">
+                <h6 class="fw-bold text-danger mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> Submission Issue</h6>
+                <p class="small mb-0" id="contactErrorMsg">Could not submit viewing request.</p>
+              </div>
+
+              <form id="contactViewingForm" novalidate>
+                <!-- Honeypot spam trap -->
+                <div style="display:none !important;" aria-hidden="true">
+                  <label for="contactWebsite">Leave this field blank</label>
+                  <input type="text" id="contactWebsite" name="website" tabindex="-1" autocomplete="off">
+                </div>
+
                 <div class="row g-3">
                   <div class="col-md-6">
-                    <label for="contactFullName" class="form-label small fw-bold text-navy">Your Full Name</label>
+                    <label for="contactFullName" class="form-label small fw-bold text-navy">Your Full Name *</label>
                     <input type="text" class="form-control" id="contactFullName" required placeholder="e.g. Juanita Gomez">
                   </div>
                   <div class="col-md-6">
-                    <label for="contactMobile" class="form-label small fw-bold text-navy">Mobile Number (SMS)</label>
-                    <input type="tel" class="form-control" id="contactMobile" required placeholder="0917-000-0000">
+                    <label for="contactMobile" class="form-label small fw-bold text-navy">Mobile Number (SMS) *</label>
+                    <input type="tel" class="form-control" id="contactMobile" required placeholder="09XX-XXX-XXXX">
+                    <small class="text-muted" style="font-size:0.75rem;">Philippine mobile (09XX-XXX-XXXX)</small>
                   </div>
                   <div class="col-md-6">
                     <label for="contactRoomType" class="form-label small fw-bold text-navy">Interested Accommodation</label>
@@ -113,8 +126,8 @@
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <label for="contactPreferredDate" class="form-label small fw-bold text-navy">Preferred Tour Date & Time</label>
-                    <input type="date" class="form-control" id="contactPreferredDate" required>
+                    <label for="contactPreferredDate" class="form-label small fw-bold text-navy">Preferred Tour Date & Time *</label>
+                    <input type="date" class="form-control" id="contactPreferredDate" required min="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d', strtotime('+1 day')) ?>">
                   </div>
                   <div class="col-12">
                     <label for="contactNotes" class="form-label small fw-bold text-navy">Target Move-in Date / Questions</label>

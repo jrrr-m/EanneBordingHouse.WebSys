@@ -66,6 +66,7 @@ if ($method === 'GET') {
                 'urgency' => $t['urgency'],
                 'is_urgent' => strtolower($t['urgency']) === 'urgent',
                 'description' => $t['description'],
+                'attachment_images' => $t['attachment_images'] ?? '',
                 'status' => $t['status'],
                 'created_at' => date('M j, Y g:i A', strtotime($t['created_at'])),
                 'created_at_short' => date('M j, Y', strtotime($t['created_at'])),
@@ -122,14 +123,46 @@ if ($method === 'GET') {
             exit;
         }
 
+        // Process any uploaded images (attachment_images[] or ticket_images[])
+        $uploadedImages = [];
+        $targetDir = __DIR__ . '/../uploads/tickets/';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
+        $fileKeys = ['attachment_images', 'ticket_images'];
+        foreach ($fileKeys as $fileKey) {
+            if (!empty($_FILES[$fileKey]['name'])) {
+                $names = (array)$_FILES[$fileKey]['name'];
+                $tmpNames = (array)$_FILES[$fileKey]['tmp_name'];
+                $sizes = (array)$_FILES[$fileKey]['size'];
+                $errors = (array)$_FILES[$fileKey]['error'];
+
+                for ($i = 0; $i < count($names); $i++) {
+                    if (empty($names[$i]) || $errors[$i] !== UPLOAD_ERR_OK) continue;
+                    // Validate size <= 10MB
+                    if ($sizes[$i] > 10 * 1024 * 1024) continue;
+                    $ext = strtolower(pathinfo($names[$i], PATHINFO_EXTENSION));
+                    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) continue;
+
+                    $cleanName = 'ticket_' . date('Ymd_His') . '_' . rand(100, 999) . '.' . $ext;
+                    $targetPath = $targetDir . $cleanName;
+                    if (move_uploaded_file($tmpNames[$i], $targetPath)) {
+                        $uploadedImages[] = 'uploads/tickets/' . $cleanName;
+                    }
+                }
+            }
+        }
+        $attachmentImagesJson = !empty($uploadedImages) ? json_encode($uploadedImages) : null;
+
         $ticketNo = 'TKT-' . rand(1000, 9999);
 
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, status)
-                VALUES (?, ?, ?, ?, ?, ?, 'open')
+                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, attachment_images, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
             ");
-            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description]);
+            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description, $attachmentImagesJson]);
             $ticketId = (int)$pdo->lastInsertId();
 
             echo json_encode([
@@ -143,6 +176,7 @@ if ($method === 'GET') {
                     'category' => $category,
                     'urgency' => $urgency,
                     'description' => $description,
+                    'attachment_images' => $attachmentImagesJson,
                     'status' => 'open',
                     'created_at' => date('M j, Y g:i A'),
                     'created_at_short' => date('M j, Y')

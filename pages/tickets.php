@@ -30,11 +30,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $resolvedAt = ($initialStatus === 'resolved') ? date('Y-m-d H:i:s') : null;
 
         if (!empty($tenantName) && !empty($description)) {
+            // Process uploaded attachment images
+            $uploadedImages = [];
+            $targetDir = __DIR__ . '/../uploads/tickets/';
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
+            if (!empty($_FILES['attachment_images']['name'])) {
+                $names = (array)$_FILES['attachment_images']['name'];
+                $tmpNames = (array)$_FILES['attachment_images']['tmp_name'];
+                $sizes = (array)$_FILES['attachment_images']['size'];
+                $errors = (array)$_FILES['attachment_images']['error'];
+
+                for ($i = 0; $i < count($names); $i++) {
+                    if (empty($names[$i]) || $errors[$i] !== UPLOAD_ERR_OK) continue;
+                    if ($sizes[$i] > 10 * 1024 * 1024) continue;
+                    $ext = strtolower(pathinfo($names[$i], PATHINFO_EXTENSION));
+                    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) continue;
+
+                    $cleanName = 'ticket_' . date('Ymd_His') . '_' . rand(100, 999) . '.' . $ext;
+                    $targetPath = $targetDir . $cleanName;
+                    if (move_uploaded_file($tmpNames[$i], $targetPath)) {
+                        $uploadedImages[] = 'uploads/tickets/' . $cleanName;
+                    }
+                }
+            }
+            $attachmentImagesJson = !empty($uploadedImages) ? json_encode($uploadedImages) : null;
+
             $stmt = $pdo->prepare("
-                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, status, created_at, resolved_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, attachment_images, status, created_at, resolved_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
             ");
-            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description, $initialStatus, $resolvedAt]);
+            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $description, $attachmentImagesJson, $initialStatus, $resolvedAt]);
             header("Location: tickets.php?msg=" . urlencode("Service Ticket #{$ticketNo} logged into database with status " . ucfirst(str_replace('_', ' ', $initialStatus)) . "."));
             exit;
         }
@@ -300,7 +327,10 @@ $adminUser = $_SESSION['user'];
                       </td>
                       <td><small class="text-muted"><?= date('M j, Y', strtotime($t['created_at'])) ?></small></td>
                       <td class="text-right">
-                        <div class="d-inline-flex align-items-center gap-2">
+                        <div class="d-inline-flex align-items-center gap-1">
+                          <button type="button" class="btn btn-sm btn-outline-primary" title="View Full Ticket Details & Attachments" onclick="window.previewTicketDetails(<?= $t['id'] ?>)">
+                            <i class="bi bi-eye"></i> View
+                          </button>
                           <div class="dropdown d-inline">
                             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Change Status">
                               <i class="bi bi-pencil-square me-1"></i> Status
@@ -361,7 +391,7 @@ $adminUser = $_SESSION['user'];
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <form method="POST" action="tickets.php">
+        <form method="POST" action="tickets.php" enctype="multipart/form-data">
           <input type="hidden" name="action" value="create_ticket">
           <div class="modal-body p-4">
             <div class="row g-3">
@@ -412,6 +442,12 @@ $adminUser = $_SESSION['user'];
               <div class="col-12">
                 <label for="adminTicketDesc" class="form-label small fw-bold text-navy">Issue Description & Location</label>
                 <textarea class="form-control form-control-sm" id="adminTicketDesc" name="description" rows="3" required placeholder="Describe the maintenance problem, exact room location, or materials needed..."></textarea>
+              </div>
+
+              <div class="col-12">
+                <label for="adminTicketImages" class="form-label small fw-bold text-navy"><i class="bi bi-camera me-1"></i> Attach Maintenance Photos / Receipts (Optional)</label>
+                <input type="file" class="form-control form-control-sm" id="adminTicketImages" name="attachment_images[]" multiple accept="image/*">
+                <small class="text-muted">Upload photos of the repair area or parts receipts (JPG, PNG, WebP, max 10MB each).</small>
               </div>
             </div>
           </div>

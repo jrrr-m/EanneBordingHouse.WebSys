@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_viewing_status') {
         $vId = (int)($_POST['viewing_id'] ?? 0);
         $vStatus = $_POST['status'] ?? 'confirmed';
-        if ($vId > 0 && in_array($vStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
+        if ($vId > 0 && in_array($vStatus, ['pending', 'confirmed', 'declined', 'cancelled', 'completed'])) {
             $pdo->prepare("UPDATE viewing_requests SET status = ? WHERE id = ?")->execute([$vStatus, $vId]);
             header("Location: admin-dashboard.php?msg=" . urlencode("Viewing request #{$vId} updated to {$vStatus}."));
             exit;
@@ -289,6 +289,7 @@ $adminUser = $_SESSION['user'];
 
       <nav class="sidebar-nav">
         <a href="admin-dashboard.php" class="sidebar-link active"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
+        <a href="#viewingsSection" class="sidebar-link"><i class="bi bi-calendar-check-fill"></i><span>Viewing Visits</span> <span class="badge <?= $pendingViewingsCount > 0 ? 'badge-warning text-dark' : 'badge-secondary text-white' ?> ml-auto" id="sidebarViewingsBadge"><?= $pendingViewingsCount ?></span></a>
         <a href="tenants.php" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.php" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
         <a href="payments.php" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge <?= $pendingQueueCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white' ?> ml-auto"><?= $pendingQueueCount ?></span></a>
@@ -483,7 +484,7 @@ $adminUser = $_SESSION['user'];
                               <input type="hidden" name="status" value="verified">
                               <button type="submit" class="btn btn-sm btn-success" title="Approve"><i class="bi bi-check-lg"></i> Approve</button>
                             </form>
-                            <a href="payments.php" class="btn btn-sm btn-outline-secondary" title="Review Proof"><i class="bi bi-eye"></i></a>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Review Details & Proof" onclick="previewReceiptModal('<?= htmlspecialchars($p['reference_no']) ?>', '<?= htmlspecialchars(addslashes($p['tenant_name'])) ?>', 'Unit <?= htmlspecialchars($p['unit_code']) ?>', '<?= $p['amount'] ?>', '<?= date('M j, Y', strtotime($p['payment_date'])) ?>', '<?= htmlspecialchars($p['payment_method']) ?>', '<?= htmlspecialchars($p['reference_no']) ?>', '<?= htmlspecialchars($p['proof_image'] ?? '') ?>', 'pending', <?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['admin_notes'] ?? '')) ?>')"><i class="bi bi-eye"></i></button>
                           </td>
                         </tr>
                       <?php endforeach; ?>
@@ -500,7 +501,7 @@ $adminUser = $_SESSION['user'];
                   <h6 class="fw-bold text-navy mb-0"><i class="bi bi-calendar2-check-fill me-2 text-primary"></i> Viewing Schedule Requests</h6>
                   <small class="text-muted">In-person room visits scheduled by prospective tenants &amp; users</small>
                 </div>
-                <span class="badge <?= $pendingViewingsCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white' ?>"><?= $pendingViewingsCount ?> Pending</span>
+                <span class="badge <?= $pendingViewingsCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white' ?>" id="viewingPendingBadge"><?= $pendingViewingsCount ?> Pending</span>
               </div>
               <div class="table-responsive">
                 <table class="table table-ebh table-hover mb-0" id="adminViewingsTable">
@@ -542,9 +543,14 @@ $adminUser = $_SESSION['user'];
                             </div>
                           </td>
                           <td>
-                            <a href="tel:<?= htmlspecialchars($vr['contact_phone']) ?>" class="fw-semibold text-navy text-decoration-none">
-                              <i class="bi bi-telephone text-primary me-1"></i><?= htmlspecialchars($vr['contact_phone']) ?>
-                            </a>
+                            <div class="d-flex align-items-center gap-1">
+                              <a href="tel:<?= htmlspecialchars($vr['contact_phone']) ?>" class="fw-semibold text-navy text-decoration-none" title="Call or SMS via cellular">
+                                <i class="bi bi-telephone text-primary me-1"></i><?= htmlspecialchars($vr['contact_phone']) ?>
+                              </a>
+                              <button type="button" class="btn btn-sm btn-link text-muted p-0 px-1 border-0" title="Copy Mobile Number" onclick="if(navigator.clipboard){navigator.clipboard.writeText('<?= htmlspecialchars($vr['contact_phone']) ?>');alert('Phone number copied: <?= htmlspecialchars($vr['contact_phone']) ?>');}">
+                                <i class="bi bi-clipboard"></i>
+                              </button>
+                            </div>
                           </td>
                           <td>
                             <span class="badge badge-light border text-navy"><i class="bi bi-door-open me-1"></i><?= htmlspecialchars($vr['unit_or_type']) ?></span>
@@ -558,36 +564,25 @@ $adminUser = $_SESSION['user'];
                               <span class="badge-ebh badge-pending"><i class="bi bi-clock-history"></i> Pending</span>
                             <?php elseif ($vStatus === 'confirmed'): ?>
                               <span class="badge-ebh badge-verified"><i class="bi bi-check-circle"></i> Confirmed</span>
+                            <?php elseif ($vStatus === 'declined'): ?>
+                              <span class="badge badge-danger"><i class="bi bi-x-circle"></i> Declined</span>
                             <?php elseif ($vStatus === 'completed'): ?>
                               <span class="badge badge-secondary"><i class="bi bi-check-all"></i> Completed</span>
                             <?php else: ?>
-                              <span class="badge badge-danger"><?= htmlspecialchars(ucfirst($vStatus)) ?></span>
+                              <span class="badge badge-secondary"><?= htmlspecialchars(ucfirst($vStatus)) ?></span>
                             <?php endif; ?>
                           </td>
                           <td class="text-end">
-                            <?php if ($vStatus === 'pending'): ?>
-                              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Confirm viewing visit for <?= htmlspecialchars(addslashes($vr['user_name'])) ?>?');">
-                                <input type="hidden" name="action" value="update_viewing_status">
-                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
-                                <input type="hidden" name="status" value="confirmed">
-                                <button type="submit" class="btn btn-sm btn-primary" title="Confirm Appointment"><i class="bi bi-check-lg"></i> Confirm</button>
-                              </form>
-                              <form method="POST" action="admin-dashboard.php" class="d-inline" onsubmit="return confirm('Cancel this viewing request?');">
-                                <input type="hidden" name="action" value="update_viewing_status">
-                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
-                                <input type="hidden" name="status" value="cancelled">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancel"><i class="bi bi-x-lg"></i></button>
-                              </form>
-                            <?php elseif ($vStatus === 'confirmed'): ?>
-                              <form method="POST" action="admin-dashboard.php" class="d-inline">
-                                <input type="hidden" name="action" value="update_viewing_status">
-                                <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
-                                <input type="hidden" name="status" value="completed">
-                                <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed"><i class="bi bi-check-all"></i> Done</button>
-                              </form>
-                            <?php else: ?>
-                              <span class="text-muted small">&mdash;</span>
-                            <?php endif; ?>
+                            <form method="POST" action="admin-dashboard.php" class="d-inline-flex align-items-center gap-1">
+                              <input type="hidden" name="action" value="update_viewing_status">
+                              <input type="hidden" name="viewing_id" value="<?= $vr['id'] ?>">
+                              <select name="status" class="form-control form-control-sm custom-select custom-select-sm d-inline-block w-auto" onchange="this.form.submit();">
+                                <option value="pending" <?= $vStatus === 'pending' ? 'selected' : '' ?>>Pending</option>
+                                <option value="confirmed" <?= $vStatus === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                                <option value="declined" <?= $vStatus === 'declined' ? 'selected' : '' ?>>Declined</option>
+                                <option value="completed" <?= $vStatus === 'completed' ? 'selected' : '' ?>>Completed</option>
+                              </select>
+                            </form>
                           </td>
                         </tr>
                       <?php endforeach; ?>

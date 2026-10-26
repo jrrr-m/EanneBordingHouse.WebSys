@@ -107,11 +107,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ticketNo = 'TKT-' . rand(1000, 9999);
 
         if (!empty($desc)) {
+            $uploadedImages = [];
+            $targetDir = __DIR__ . '/../uploads/tickets/';
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
+            if (!empty($_FILES['ticket_images']['name'])) {
+                $names = (array)$_FILES['ticket_images']['name'];
+                $tmpNames = (array)$_FILES['ticket_images']['tmp_name'];
+                $sizes = (array)$_FILES['ticket_images']['size'];
+                $errors = (array)$_FILES['ticket_images']['error'];
+
+                for ($i = 0; $i < count($names); $i++) {
+                    if (empty($names[$i]) || $errors[$i] !== UPLOAD_ERR_OK) continue;
+                    if ($sizes[$i] > 10 * 1024 * 1024) continue;
+                    $ext = strtolower(pathinfo($names[$i], PATHINFO_EXTENSION));
+                    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) continue;
+
+                    $cleanName = 'ticket_' . date('Ymd_His') . '_' . rand(100, 999) . '.' . $ext;
+                    $targetPath = $targetDir . $cleanName;
+                    if (move_uploaded_file($tmpNames[$i], $targetPath)) {
+                        $uploadedImages[] = 'uploads/tickets/' . $cleanName;
+                    }
+                }
+            }
+            $attachmentImagesJson = !empty($uploadedImages) ? json_encode($uploadedImages) : null;
+
             $stmt = $pdo->prepare("
-                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 'open', NOW())
+                INSERT INTO maintenance_tickets (ticket_no, tenant_name, unit_code, category, urgency, description, attachment_images, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'open', NOW())
             ");
-            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $desc]);
+            $stmt->execute([$ticketNo, $tenantName, $unitCode, $category, $urgency, $desc, $attachmentImagesJson]);
             header("Location: tenant-dashboard.php?msg=" . urlencode("Maintenance ticket #{$ticketNo} submitted to caretaker."));
             exit;
         }
@@ -446,7 +472,7 @@ $firstName = explode(' ', trim($user['full_name']))[0];
           </div>
           <div class="ebh-card-body">
             <!-- Submit Form -->
-            <form method="POST" action="tenant-dashboard.php" class="mb-4 p-3 bg-light rounded-3 border">
+            <form method="POST" action="tenant-dashboard.php" enctype="multipart/form-data" class="mb-4 p-3 bg-light rounded-3 border">
               <input type="hidden" name="action" value="create_ticket">
               <h6 class="fw-bold text-navy mb-3 small"><i class="bi bi-plus-circle me-1 text-primary"></i> Create Repair Request</h6>
               <div class="row g-3">
@@ -470,6 +496,11 @@ $firstName = explode(' ', trim($user['full_name']))[0];
                 <div class="col-12">
                   <label for="ticketDescription" class="form-label small fw-bold text-navy">Brief Description of the Problem</label>
                   <input type="text" class="form-control" id="ticketDescription" name="description" required placeholder="e.g. Bathroom sink faucet is dripping slightly.">
+                </div>
+                <div class="col-12">
+                  <label for="tenantTicketImages" class="form-label small fw-bold text-navy"><i class="bi bi-camera me-1"></i> Attach Photos of Problem (Optional)</label>
+                  <input type="file" class="form-control form-control-sm" id="tenantTicketImages" name="ticket_images[]" multiple accept="image/*">
+                  <small class="text-muted">Take a clear photo of the broken item or leak (JPG, PNG, WebP).</small>
                 </div>
                 <div class="col-12 text-end">
                   <button type="submit" class="btn btn-sm btn-ebh-primary"><i class="bi bi-send-fill me-1"></i> Submit Ticket</button>

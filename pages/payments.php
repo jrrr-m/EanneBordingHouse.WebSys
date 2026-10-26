@@ -309,6 +309,9 @@ $adminUser = $_SESSION['user'];
                       <td class="text-end">
                         <?php if ($isPending): ?>
                           <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" title="View Details & Proof of Payment" onclick="previewReceiptModal('<?= htmlspecialchars($p['reference_no']) ?>', '<?= htmlspecialchars(addslashes($p['tenant_name'])) ?>', 'Unit <?= htmlspecialchars($p['unit_code']) ?>', '<?= $p['amount'] ?>', '<?= date('M j, Y', strtotime($p['payment_date'])) ?>', '<?= htmlspecialchars($p['payment_method']) ?>', '<?= htmlspecialchars($p['reference_no']) ?>', '<?= htmlspecialchars($p['proof_image'] ?? '') ?>', '<?= $p['status'] ?>', <?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['admin_notes'] ?? '')) ?>')">
+                              <i class="bi bi-eye"></i> View
+                            </button>
                             <form method="POST" action="payments.php" class="d-inline" onsubmit="return confirm('Approve Payment #<?= htmlspecialchars($p['reference_no']) ?> as Verified & Cleared?');">
                               <input type="hidden" name="action" value="approve_payment">
                               <input type="hidden" name="payment_id" value="<?= $p['id'] ?>">

@@ -1293,9 +1293,14 @@ $adminUser = $_SESSION['user'];
     });
 
     // Universal Search Bar across active and inactive tabs
-    $('#tenantSearchInput').on('keyup', function() {
+    $('#tenantSearchInput').on('keyup input', function() {
+      const $group = $('.btn-filter-group').first();
+      const activeTarget = $group.find('.btn-filter.active').attr('data-target-items') || '#activeTenantsTable tbody tr';
+      if (typeof window.applyUnifiedFilter === 'function') {
+        window.applyUnifiedFilter($group, activeTarget);
+      }
       const q = $(this).val().toLowerCase().trim();
-      $('#activeTenantsTable tbody tr, #inactiveTenantsTable tbody tr').each(function() {
+      $('#inactiveTenantsTable tbody tr').each(function() {
         const text = $(this).text().toLowerCase();
         $(this).toggle(text.indexOf(q) > -1);
       });
