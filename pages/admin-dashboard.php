@@ -289,7 +289,6 @@ $adminUser = $_SESSION['user'];
 
       <nav class="sidebar-nav">
         <a href="admin-dashboard.php" class="sidebar-link active"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
-        <a href="#viewingsSection" class="sidebar-link"><i class="bi bi-calendar-check-fill"></i><span>Viewing Visits</span> <span class="badge <?= $pendingViewingsCount > 0 ? 'badge-warning text-dark' : 'badge-secondary text-white' ?> ml-auto" id="sidebarViewingsBadge"><?= $pendingViewingsCount ?></span></a>
         <a href="tenants.php" class="sidebar-link"><i class="bi bi-people-fill"></i><span>Tenants Roster</span></a>
         <a href="rooms.php" class="sidebar-link"><i class="bi bi-door-open-fill"></i><span>Rooms & Houses</span></a>
         <a href="payments.php" class="sidebar-link"><i class="bi bi-credit-card-2-front-fill"></i><span>Payments Queue</span> <span class="badge <?= $pendingQueueCount > 0 ? 'badge-warning text-dark' : 'badge-success text-white' ?> ml-auto"><?= $pendingQueueCount ?></span></a>

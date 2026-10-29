@@ -1406,8 +1406,10 @@ thead.bg-navy th {
 
 /* Print */
 @media print {
-  .dashboard-sidebar, .dashboard-topbar, .btn, .modal, .toast-container, .ebh-toast-container, .btn-back-to-top { display: none !important; }
-  .dashboard-wrapper, .dashboard-main { height: auto !important; overflow: visible !important; }
+  .dashboard-sidebar, .dashboard-topbar, .btn, .toast-container, .ebh-toast-container, .btn-back-to-top { display: none !important; }
+  .dashboard-wrapper, .dashboard-main { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
   .table-responsive { max-height: none !important; overflow: visible !important; }
+  body { background: #ffffff !important; color: #000000 !important; }
 }
+
 

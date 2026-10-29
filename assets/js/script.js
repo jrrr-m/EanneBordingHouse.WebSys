@@ -1677,7 +1677,7 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
           ${actionButtonsHtml}
           <div class="modal-footer bg-white border-top">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-ebh-primary btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i> Print Receipt</button>
+            <button type="button" class="btn btn-ebh-primary btn-sm" onclick="printPaymentInvoice('${refNum}', '${window.escapeJs(tenantName)}', '${window.escapeJs(roomName)}', '${amountStr}', '${dateStr}', '${window.escapeJs(methodStr)}', '${currentStatus}')"><i class="bi bi-printer me-1"></i> Print Invoice</button>
           </div>
         </div>
       </div>
@@ -1687,6 +1687,346 @@ window.previewReceiptModal = function (id, tenant, room, amount, date, method, r
   $('#receiptPreviewModal').remove();
   $('body').append(modalHtml);
   $('#receiptPreviewModal').modal('show');
+};
+
+// Print Official Invoice for a Payment Transaction
+window.printPaymentInvoice = function (refNum, tenantName, roomName, amountStr, dateStr, methodStr, status) {
+  const invoiceNo = 'INV-' + String(refNum || '0000').replace(/[^a-zA-Z0-9-]/g, '');
+  const statusUpper = (status || 'VERIFIED').toUpperCase();
+  const isPaid = statusUpper === 'VERIFIED' || statusUpper === 'APPROVED' || statusUpper === 'CLEARED';
+  const badgeClass = isPaid ? 'invoice-status-paid' : (statusUpper === 'PENDING' ? 'invoice-status-pending' : 'invoice-status-rejected');
+
+  const invoiceHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Invoice #${invoiceNo} - Eanne Boarding House</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          color: #1e293b;
+          background: #ffffff;
+          padding: 32px;
+          line-height: 1.5;
+          font-size: 13.5px;
+        }
+        .invoice-box {
+          max-width: 800px;
+          margin: 0 auto;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 40px;
+        }
+        .invoice-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding-bottom: 24px;
+          border-bottom: 2px solid #0f172a;
+          margin-bottom: 28px;
+        }
+        .brand-title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 22px;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+        .brand-subtitle {
+          color: #64748b;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+        .invoice-tag-wrap {
+          text-align: right;
+        }
+        .invoice-tag {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 26px;
+          font-weight: 700;
+          color: #0284c7;
+          letter-spacing: 1px;
+          line-height: 1;
+          margin-bottom: 6px;
+        }
+        .invoice-num {
+          font-weight: 700;
+          color: #334155;
+          font-size: 13px;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+          margin-bottom: 30px;
+        }
+        .info-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 16px 20px;
+        }
+        .info-card-title {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          color: #64748b;
+          margin-bottom: 10px;
+        }
+        .info-line {
+          margin-bottom: 6px;
+          display: flex;
+          justify-content: space-between;
+        }
+        .info-line:last-child { margin-bottom: 0; }
+        .info-label { color: #64748b; }
+        .info-value { font-weight: 600; color: #0f172a; text-align: right; }
+        
+        .table-invoice {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 24px;
+        }
+        .table-invoice th {
+          background: #0f172a;
+          color: #ffffff;
+          text-align: left;
+          padding: 12px 16px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+        .table-invoice th.text-end, .table-invoice td.text-end { text-align: right; }
+        .table-invoice td {
+          padding: 14px 16px;
+          border-bottom: 1px solid #e2e8f0;
+          color: #334155;
+        }
+        .table-invoice tbody tr:last-child td {
+          border-bottom: 2px solid #cbd5e1;
+        }
+        
+        .totals-section {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 32px;
+        }
+        .totals-box {
+          width: 320px;
+        }
+        .totals-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 6px 0;
+          color: #475569;
+        }
+        .totals-row.grand-total {
+          border-top: 2px solid #0f172a;
+          margin-top: 8px;
+          padding-top: 12px;
+          font-size: 16px;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .totals-row.grand-total .amount {
+          color: #0284c7;
+          font-size: 18px;
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+        .invoice-status-paid {
+          background: #dcfce7;
+          color: #15803d;
+          border: 1px solid #86efac;
+        }
+        .invoice-status-pending {
+          background: #fef3c7;
+          color: #b45309;
+          border: 1px solid #fde68a;
+        }
+        .invoice-status-rejected {
+          background: #fee2e2;
+          color: #b91c1c;
+          border: 1px solid #fca5a5;
+        }
+
+        .stamp-box {
+          display: inline-block;
+          border: 2px dashed ${isPaid ? '#15803d' : '#b45309'};
+          color: ${isPaid ? '#15803d' : '#b45309'};
+          padding: 8px 16px;
+          font-weight: 800;
+          font-size: 14px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          transform: rotate(-4deg);
+          border-radius: 6px;
+        }
+
+        .invoice-footer {
+          border-top: 1px solid #e2e8f0;
+          padding-top: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          color: #64748b;
+          font-size: 11px;
+        }
+        
+        @media print {
+          body { padding: 0; background: #ffffff; }
+          .invoice-box { border: none; padding: 10px; max-width: 100%; }
+          .no-print { display: none !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="invoice-box">
+        <div class="invoice-header">
+          <div>
+            <div class="brand-title">EANNE BOARDING HOUSE</div>
+            <div class="brand-subtitle">
+              #275 105 St. Soldiers Village, Brgy. Sta. Lucia, Pasig City<br>
+              Phone: +63 917 123 4567 • Email: support@eanneboardinghouse.ph
+            </div>
+          </div>
+          <div class="invoice-tag-wrap">
+            <div class="invoice-tag">RENT INVOICE</div>
+            <div class="invoice-num">Invoice No: ${invoiceNo}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Date: ${dateStr}</div>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-card-title">Billed To (Tenant)</div>
+            <div class="info-line">
+              <span class="info-label">Tenant Name:</span>
+              <span class="info-value">${tenantName}</span>
+            </div>
+            <div class="info-line">
+              <span class="info-label">Assigned Room:</span>
+              <span class="info-value">${roomName}</span>
+            </div>
+            <div class="info-line">
+              <span class="info-label">Account Status:</span>
+              <span class="info-value">Active Resident</span>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">Payment & Ledger Details</div>
+            <div class="info-line">
+              <span class="info-label">Reference No:</span>
+              <span class="info-value">#${refNum}</span>
+            </div>
+            <div class="info-line">
+              <span class="info-label">Payment Channel:</span>
+              <span class="info-value">${methodStr}</span>
+            </div>
+            <div class="info-line">
+              <span class="info-label">Status:</span>
+              <span class="info-value"><span class="status-badge ${badgeClass}">${statusUpper}</span></span>
+            </div>
+          </div>
+        </div>
+
+        <table class="table-invoice">
+          <thead>
+            <tr>
+              <th>Description / Item</th>
+              <th>Unit / Room</th>
+              <th>Billing Period</th>
+              <th class="text-end">Amount (PHP)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>Monthly Room Rental</strong>
+                <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Standard residential boarding house room occupancy fee</div>
+              </td>
+              <td>${roomName}</td>
+              <td>${dateStr}</td>
+              <td class="text-end">₱${amountStr}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Utilities (Water & Electricity)</strong>
+                <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Excluded from base rent (tenant submetered/shared arrangement)</div>
+              </td>
+              <td>${roomName}</td>
+              <td>Current</td>
+              <td class="text-end">₱0.00</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="stamp-box">${isPaid ? 'OFFICIALLY PAID' : statusUpper}</div>
+            <div style="margin-top: 12px; font-size: 11px; color: #64748b;">
+              <strong>Authorized Verification:</strong><br>
+              Eanne Boarding House Property Management System
+            </div>
+          </div>
+
+          <div class="totals-section">
+            <div class="totals-box">
+              <div class="totals-row">
+                <span>Subtotal:</span>
+                <span class="fw-semibold">₱${amountStr}</span>
+              </div>
+              <div class="totals-row">
+                <span>Discounts / Deductions:</span>
+                <span>₱0.00</span>
+              </div>
+              <div class="totals-row grand-total">
+                <span>Total Amount Due / Paid:</span>
+                <span class="amount">₱${amountStr}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="invoice-footer">
+          <div>This is an official computer-generated rent invoice document.</div>
+          <div>Page 1 of 1</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=880,height=900,scrollbars=yes');
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(invoiceHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function () {
+      printWindow.print();
+    }, 450);
+  } else {
+    // Fallback if popups are blocked: open print in iframe or prompt user
+    alert('Please allow popups to preview and print the official rent invoice.');
+  }
 };
 
 // Fetch and Populate All Payments Table on payments.html from MySQL
